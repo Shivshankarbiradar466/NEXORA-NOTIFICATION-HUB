@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+
+{% block title %}NEXORA · My Profile{% endblock %}
+
+{% block content %}
+<div class="nx-profile-container">
+
+  <!-- Profile Hero Header with Direct Editing & Uploading -->
+  <section class="nx-profile-hero">
+    <div class="nx-profile-hero-backdrop"></div>
+    <div class="nx-profile-hero-content">
+      <!-- Interactive Avatar: Click directly to upload/change photo -->
+      <div class="nx-profile-hero-avatar-wrap" id="heroAvatarWrap" role="button" tabindex="0" title="Click directly to upload/change profile photo">
+        {% if user.profile_image %}
+          <img
+            class="nx-profile-hero-avatar"
+            src="{{ url_for('static', filename='uploads/profile_images/' ~ user.profile_image) }}"
+            alt="Profile photo for {{ user.username }}"
+            id="heroAvatarImg"
+          >
+        {% else %}
+          <div
+            class="nx-profile-hero-avatar nx-profile-avatar-fallback"
+            id="heroAvatarFallback"
+            role="img"
+            aria-label="Profile avatar"
+          >
+            {{ user.username[:1]|upper }}
+          </div>
+        {% endif %}
+        <div class="nx-avatar-edit-overlay" aria-hidden="true">
+          <span>📷</span>
+          <small>Change</small>
+        </div>
+        <span class="nx-profile-online-badge" title="Active Account"></span>
+      </div>
+
+      <!-- Hidden direct file upload form for hero section -->
+      <form
+        method="POST"
+        action="{{ url_for('main.upload_profile_photo') }}"
+        enctype="multipart/form-data"
+        id="heroDirectUploadForm"
+        style="display: none;"
+      >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input
+          type="file"
+          id="heroDirectFileInput"
+          name="profile_image"
+          accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+        >
+      </form>
+
+      <div class="nx-profile-hero-meta">
+        <div class="nx-profile-badge-row">
+          <span class="nx-pill-badge active">● Active Member</span>
+          <span class="nx-pill-badge verified">✓ Verified Account</span>
+          {% if user.monitoring_enabled %}
+            <span class="nx-pill-badge monitoring">⚡ Monitoring ON</span>
+          {% endif %}
+          <span class="nx-pill-badge" id="heroUploadStatusBadge" style="display: none; background: rgba(56, 189, 248, 0.2); color: #38bdf8;">
+            Uploading photo...
+          </span>
+        </div>
+
+        <div id="heroUsernameNormalWrap">
+          <h1 class="nx-profile-name" id="heroUsernameDisplay">{{ user.username }}</h1>
+          <p class="nx-profile-email-sub">{{ user.email }} · NEXORA Workspace Member</p>
+        </div>
+
+        <!-- Inline Username Edit directly in the Hero Banner -->
+        <div class="nx-hero-username-edit-wrap" id="heroUsernameInlineForm" style="display: none;">
+          <form method="POST" action="{{ url_for('main.update_username') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="nx-hero-input-group">
+              <span class="nx-hero-prefix">@</span>
+              <input
+                type="text"
+                name="username"
+                id="heroInlineUsernameInput"
+                value="{{ user.username }}"
+                required
+                maxlength="80"
+                pattern="[A-Za-z0-9_.-]{3,80}"
+                placeholder="New username"
+              >
+              <button type="submit" class="nx-btn-action small">Save</button>
+              <button type="button" class="nx-btn-action small cancel" id="cancelHeroInlineEditBtn">Cancel</button>
+            </div>
+            <small class="nx-hero-hint">3-80 characters using letters, numbers, '.', '-', and '_'</small>
+          </form>
+        </div>
+      </div>
+
+      <div class="nx-profile-hero-actions">
+        <button type="button" class="nx-btn-action" id="openHeroInlineEditBtn">
+          <span>✏️</span> Edit Username
+        </button>
+        <button type="button" class="nx-btn-action secondary" id="heroChangePhotoBtn">
+          <span>📷</span> Change Photo
+        </button>
+        {% if user.profile_image %}
+          <form
+            method="POST"
+            action="{{ url_for('main.remove_profile_photo') }}"
+            style="display: inline;"
+            onsubmit="return confirm('Remove your custom photo and reset to your default avatar?');"
+          >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="nx-btn-action danger" id="heroRemovePhotoBtn" title="Remove custom photo">
+              <span>🗑</span> Remove
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Stats Ribbon -->
+  <section class="nx-profile-stats-ribbon">
+    <div class="nx-stat-pill">
+      <span class="nx-stat-icon-sm">✉️</span>
+      <div>
+        <strong>{{ email_count or 0 }}</strong>
+        <small>Emails Scanned</small>
+      </div>
+    </div>
+    <div class="nx-stat-pill">
+      <span class="nx-stat-icon-sm">💬</span>
+      <div>
+        <strong>{{ alert_count or 0 }}</strong>
+        <small>WhatsApp Alerts</small>
+      </div>
+    </div>
+    <div class="nx-stat-pill">
+      <span class="nx-stat-icon-sm">📋</span>
+      <div>
+        <strong>{{ task_count or 0 }}</strong>
+        <small>Tasks & Deadlines</small>
+      </div>
+    </div>
+    <div class="nx-stat-pill">
+      <span class="nx-stat-icon-sm">📅</span>
+      <div>
+        <strong>{{ user.created_at.strftime('%b %d, %Y') if user.created_at else 'Active' }}</strong>
+        <small>Member Since</small>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive 2-Column Grid -->
+  <div class="nx-profile-grid">
+
+    <!-- Column 1: Account Overview -->
+    <div class="nx-profile-col">
+      <section class="nx-card nx-profile-card">
+        <div class="nx-card-head">
+          <div class="nx-card-title">
+            <span class="nx-card-icon">⚡</span>
+            <div>
+              <h3>Account Overview</h3>
+              <p>Essential profile details and status</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="nx-details-table">
+          <div class="nx-detail-row">
+            <span class="nx-detail-key">Primary Email</span>
+            <div class="nx-detail-val">
+              <strong>{{ user.email }}</strong>
+              <span class="nx-mini-tag verified">Verified</span>
+            </div>
+          </div>
+
+          <div class="nx-detail-row">
+            <span class="nx-detail-key">Account Status</span>
+            <div class="nx-detail-val">
+              <span class="nx-status-indicator-dot"></span>
+              <strong>Active Workspace Member</strong>
+            </div>
+          </div>
+
+          <div class="nx-detail-row">
+            <span class="nx-detail-key">WhatsApp Channel</span>
+            <div class="nx-detail-val">
+              {% if user.whatsapp_number %}
+                <span class="nx-wa-number-badge">📱 {{ user.whatsapp_number }}</span>
+              {% else %}
+                <a href="{{ url_for('main.dashboard') }}#whatsapp" class="nx-link-action">
+                  Configure WhatsApp QR ↗
+                </a>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="nx-detail-row">
+            <span class="nx-detail-key">Gmail Intelligence</span>
+            <div class="nx-detail-val">
+              {% if user.monitoring_enabled %}
+                <span class="nx-mini-tag active">Active & Scanning</span>
+              {% else %}
+                <span class="nx-mini-tag paused">Paused</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="nx-detail-row">
+            <span class="nx-detail-key">Member Since</span>
+            <div class="nx-detail-val">
+              <span>{{ user.created_at.strftime('%d %B %Y') if user.created_at else 'Active' }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Column 2: Connected Integrations & Security Card -->
+    <div class="nx-profile-col">
+      <section class="nx-card nx-profile-card">
+        <div class="nx-card-head">
+          <div class="nx-card-title">
+            <span class="nx-card-icon">🔐</span>
+            <div>
+              <h3>Integrations & Security</h3>
+              <p>Authentication and external connections</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="nx-integrations-list">
+          <!-- Google OAuth Integration -->
+          <div class="nx-integration-item">
+            <div class="nx-integration-info">
+              <div class="nx-brand-icon-circle google">G</div>
+              <div>
+                <strong>Google Workspace</strong>
+                <p>{{ 'Connected with Gmail access' if user.google_sub else 'Not linked yet' }}</p>
+              </div>
+            </div>
+            <div>
+              {% if user.google_sub %}
+                <a href="{{ url_for('oauth.google_disconnect') }}" class="nx-danger-sm-btn">
+                  Disconnect
+                </a>
+              {% else %}
+                <a href="{{ url_for('oauth.google_login') }}" class="nx-primary-sm-btn">
+                  Connect Google
+                </a>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Multi-Factor / 2-Step Verification -->
+          <div class="nx-integration-item">
+            <div class="nx-integration-info">
+              <div class="nx-brand-icon-circle mfa">🛡️</div>
+              <div>
+                <strong>2-Step Verification (Google Account)</strong>
+                <p>{{ 'Active & Protecting your login' if user.mfa_enabled else 'Add extra security with 2-Step Verification' }}</p>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <form method="POST" action="{{ url_for('main.toggle_mfa') }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="{{ 'stop' if user.mfa_enabled else 'start' }}">
+                <button type="submit" class="nx-outline-sm-btn">
+                  {{ 'Disable 2-Step' if user.mfa_enabled else 'Enable 2-Step' }}
+                </button>
+              </form>
+              <a href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank" rel="noopener noreferrer" class="nx-primary-sm-btn" title="Open Google Account 2-Step Verification management directly">
+                Google 2-Step ↗
+              </a>
+            </div>
+          </div>
+
+          <!-- Password Reset -->
+          <div class="nx-integration-item">
+            <div class="nx-integration-info">
+              <div class="nx-brand-icon-circle key">🔑</div>
+              <div>
+                <strong>Account Password</strong>
+                <p>Change or update your secret password</p>
+              </div>
+            </div>
+            <div>
+              <a href="{{ url_for('auth.forgot') }}" class="nx-outline-sm-btn">
+                Reset Password
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Profile Interactivity Scripts -->
+<script>
+(function() {
+  const maxBytes = 10 * 1024 * 1024;
+  const allowedMimes = ["image/jpeg", "image/png", "image/webp"];
+
+  // ==========================================
+  // DIRECT HERO PHOTO UPLOAD (NO SCROLLING)
+  // ==========================================
+  const heroAvatarWrap = document.getElementById("heroAvatarWrap");
+  const heroChangePhotoBtn = document.getElementById("heroChangePhotoBtn");
+  const heroFileInput = document.getElementById("heroDirectFileInput");
+  const heroUploadForm = document.getElementById("heroDirectUploadForm");
+  const heroStatusBadge = document.getElementById("heroUploadStatusBadge");
+
+  function triggerHeroPhotoSelect() {
+    heroFileInput?.click();
+  }
+
+  heroAvatarWrap?.addEventListener("click", triggerHeroPhotoSelect);
+  heroAvatarWrap?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      triggerHeroPhotoSelect();
+    }
+  });
+  heroChangePhotoBtn?.addEventListener("click", triggerHeroPhotoSelect);
+
+  heroFileInput?.addEventListener("change", function() {
+    const file = this.files && this.files[0];
+    if (!file) return;
+
+    if (!allowedMimes.includes(file.type)) {
+      alert("Please choose a valid JPG, PNG, or WebP image.");
+      this.value = "";
+      return;
+    }
+
+    if (file.size > maxBytes) {
+      alert("Image file size must be 10 MB or smaller.");
+      this.value = "";
+      return;
+    }
+
+    // Show preview immediately and submit
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const heroAvatarImg = document.getElementById("heroAvatarImg");
+      const heroAvatarFallback = document.getElementById("heroAvatarFallback");
+      if (heroAvatarImg) {
+        heroAvatarImg.src = e.target.result;
+      } else if (heroAvatarFallback) {
+        const newImg = document.createElement("img");
+        newImg.className = "nx-profile-hero-avatar";
+        newImg.id = "heroAvatarImg";
+        newImg.src = e.target.result;
+        newImg.alt = "Profile photo";
+        heroAvatarFallback.parentNode.replaceChild(newImg, heroAvatarFallback);
+      }
+      if (heroStatusBadge) {
+        heroStatusBadge.style.display = "inline-flex";
+        heroStatusBadge.textContent = "Uploading photo (" + (file.size / (1024 * 1024)).toFixed(1) + " MB)...";
+      }
+      heroUploadForm?.submit();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // ==========================================
+  // DIRECT HERO INLINE USERNAME EDIT
+  // ==========================================
+  const openHeroEditBtn = document.getElementById("openHeroInlineEditBtn");
+  const cancelHeroEditBtn = document.getElementById("cancelHeroInlineEditBtn");
+  const heroNormalWrap = document.getElementById("heroUsernameNormalWrap");
+  const heroInlineForm = document.getElementById("heroUsernameInlineForm");
+  const heroInlineInput = document.getElementById("heroInlineUsernameInput");
+
+  openHeroEditBtn?.addEventListener("click", () => {
+    if (heroNormalWrap) heroNormalWrap.style.display = "none";
+    if (heroInlineForm) {
+      heroInlineForm.style.display = "block";
+      heroInlineInput?.focus();
+      heroInlineInput?.select();
+    }
+  });
+
+  cancelHeroEditBtn?.addEventListener("click", () => {
+    if (heroInlineForm) heroInlineForm.style.display = "none";
+    if (heroNormalWrap) heroNormalWrap.style.display = "block";
+  });
+})();
+</script>
+{% endblock %}

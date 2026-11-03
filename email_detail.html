@@ -1,0 +1,473 @@
+{% extends "base.html" %}
+
+{% block title %}{{ e.subject or 'Email Details' }} · NEXORA{% endblock %}
+
+{% block content %}
+<div class="nx-email-view-container">
+  <!-- Top Navigation & Actions Bar -->
+  <div class="nx-view-topbar">
+    <a href="{{ url_for('main.dashboard') }}#recent-emails" class="nx-btn-back">
+      <span aria-hidden="true">←</span> Back to Mailbox
+    </a>
+
+    <div class="nx-view-actions">
+      {% if e.is_trashed %}
+      <form method="POST" action="{{ url_for('main.restore_email', email_id=e.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ url_for('main.view_email', email_id=e.id) }}">
+        <button class="nx-action-btn restore" type="submit">Restore from Trash</button>
+      </form>
+      {% else %}
+      {% if e.is_spam %}
+      <form method="POST" action="{{ url_for('main.mark_not_spam', email_id=e.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ url_for('main.view_email', email_id=e.id) }}">
+        <button class="nx-action-btn not-spam" type="submit">✓ Not Spam / Restore</button>
+      </form>
+      {% else %}
+      <form method="POST" action="{{ url_for('main.mark_spam', email_id=e.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ url_for('main.view_email', email_id=e.id) }}">
+        <button class="nx-action-btn spam" type="submit">⚠ Mark as Spam</button>
+      </form>
+      {% endif %}
+
+      {% if is_blocked %}
+      <span class="nx-status-chip blocked">Sender Blocked</span>
+      {% else %}
+      <form method="POST" action="{{ url_for('main.block_sender', email_id=e.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ url_for('main.view_email', email_id=e.id) }}">
+        <button class="nx-action-btn block" type="submit">Block Sender</button>
+      </form>
+      {% endif %}
+
+      {% if is_trusted %}
+      <span class="nx-status-chip trusted">Sender Trusted</span>
+      {% else %}
+      <form method="POST" action="{{ url_for('main.trust_sender', email_id=e.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ url_for('main.view_email', email_id=e.id) }}">
+        <button class="nx-action-btn trust" type="submit">★ Trust Sender</button>
+      </form>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('main.move_email_to_trash', email_id=e.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="nx-action-btn trash" type="submit">🗑 Move to Trash</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Main Email Card -->
+  <article class="nx-card nx-email-view-card">
+    <!-- Email Header -->
+    <header class="nx-email-view-header">
+      <div class="nx-email-view-title-wrap">
+        <h1 class="nx-email-view-subject">{{ e.subject or '(No Subject)' }}</h1>
+        <div class="nx-email-meta-badges">
+          {% if e.is_spam %}
+          <span class="nx-badge priority-urgent">SPAM · {{ '%.0f'|format((e.spam_score or 0) * 100) }}%</span>
+          {% endif %}
+          {% if (e.phishing_score or 0) >= 0.45 %}
+          <span class="nx-badge priority-urgent">PHISHING WARNING · {{ '%.0f'|format((e.phishing_score or 0) * 100) }}%</span>
+          {% endif %}
+          <span class="nx-badge priority-{{ (e.priority or 'Normal')|lower|replace(' ','-') }}">
+            {{ e.priority or 'Normal' }}
+          </span>
+          <span class="nx-badge conf-{{ (e.confidentiality or 'General')|lower|replace(' ','-') }}">
+            {{ e.confidentiality or 'General' }}
+          </span>
+          {% if e.category %}
+          <span class="nx-badge">{{ e.category }}</span>
+          {% endif %}
+          <span class="nx-confidence">
+            Confidence: {{ '%.0f'|format((e.confidence or 0) * 100) }}%
+          </span>
+        </div>
+      </div>
+
+      <!-- Sender / Recipient Information -->
+      <div class="nx-email-view-parties">
+        <div class="nx-sender-avatar large">{{ (e.sender or '?')[:1]|upper }}</div>
+        <div class="nx-sender-details">
+          <div class="nx-sender-row">
+            <strong class="nx-sender-name">{{ e.sender or 'Unknown sender' }}</strong>
+            <time class="nx-email-view-time">
+              {{ e.received_at.strftime('%a, %b %d, %Y at %I:%M %p') if e.received_at else '—' }}
+            </time>
+          </div>
+          <div class="nx-recipient-row">
+            <span>to <strong>{{ e.recipient or user.email }}</strong></span>
+            {% if e.status %}<span class="nx-status-tag">{{ e.status|title }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Warnings / Alerts Banner -->
+    {% if e.is_spam and e.spam_reason %}
+    <div class="nx-view-alert spam">
+      <div class="nx-alert-icon">⚠</div>
+      <div>
+        <strong>Quarantined as Spam</strong>
+        <p>{{ e.spam_reason }}</p>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if (e.phishing_score or 0) >= 0.45 and e.phishing_reason %}
+    <div class="nx-view-alert phishing">
+      <div class="nx-alert-icon">🚨</div>
+      <div>
+        <strong>Phishing & Security Warning</strong>
+        <p>{{ e.phishing_reason }}</p>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- AI Summary Banner -->
+    {% if e.summary %}
+    <div class="nx-view-summary">
+      <div class="nx-summary-badge">
+        <span>✦</span> AI Executive Summary
+      </div>
+      <p class="nx-summary-text">{{ clean_summary or e.summary }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Full-Width Email Body Content -->
+    <div class="nx-email-view-body-wrapper">
+      {% if is_html %}
+      <div class="nx-view-mode-bar">
+        <span class="nx-view-mode-label">Display Mode:</span>
+        <button type="button" class="nx-view-toggle-btn active" id="btnViewFormatted">✉ Formatted Email</button>
+        <button type="button" class="nx-view-toggle-btn" id="btnViewPlain">📄 Text Only</button>
+      </div>
+
+      <!-- Formatted HTML Email View (Sandboxed iframe ensures styles & layout render exactly as received without leaking) -->
+      <div class="nx-email-frame-container" id="formattedViewContainer">
+        <iframe
+          id="emailBodyIframe"
+          class="nx-email-iframe"
+          sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+          frameborder="0"
+          title="Formatted Email Content"
+        ></iframe>
+      </div>
+
+      <!-- Plain Text Fallback View (Safe auto-linkification of plain text URLs) -->
+      <div class="nx-email-view-body" id="plainTextViewContainer" style="display: none;">{{ plain_text_body|e|urlize(target='_blank', rel='noopener noreferrer')|safe }}</div>
+      {% else %}
+      <div class="nx-email-view-body">{{ (e.body or '(This email has no text content.)')|e|urlize(target='_blank', rel='noopener noreferrer')|safe }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Attachments & Document Intelligence -->
+    {% if attachments %}
+    <div class="nx-attachments-section">
+      <h3>
+        <span>📎</span> Attachments & Document Intelligence ({{ attachments|length }})
+      </h3>
+      <div class="nx-attachments-grid">
+        {% for att in attachments %}
+        <div class="nx-attachment-card">
+          <div class="nx-attachment-head">
+            <strong>{{ att.filename }}</strong>
+            <small class="nx-confidence">{{ att.mime_type or 'Unknown type' }} · {{ ((att.size_bytes or 0) / 1024)|round(1) }} KB</small>
+          </div>
+          {% if att.extracted_text %}
+          <details class="nx-attachment-extracted">
+            <summary>View Extracted Intelligence</summary>
+            <pre>{{ att.extracted_text[:12000] }}</pre>
+          </details>
+          {% else %}
+          <p class="nx-attachment-status">Status: {{ att.extraction_status|replace('_',' ')|title }}</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </article>
+
+  <!-- Full-Width Spacious Reply Section -->
+  <section class="nx-card nx-view-reply-card" id="reply-section">
+    <!-- Auto AI Reply Status Banner -->
+    <div class="nx-auto-reply-status-ribbon {{ auto_reply_status }}">
+      <div class="nx-auto-reply-status-icon">
+        {% if auto_reply_status == 'sent' %}✓
+        {% elif auto_reply_status == 'scheduled' %}⏰
+        {% elif auto_reply_status == 'manual_replied' %}✓
+        {% elif auto_reply_status == 'dispatching_soon' %}⚡
+        {% else %}ℹ{% endif %}
+      </div>
+      <div class="nx-auto-reply-status-text">
+        {% if auto_reply_status == 'sent' %}
+          <strong>Auto AI Reply Dispatched</strong>
+          <span>Delivered automatically via Gmail on {{ e.auto_reply_sent_at.strftime('%a, %d %b %Y at %I:%M %p') if e.auto_reply_sent_at else 'recently' }}.</span>
+        {% elif auto_reply_status == 'scheduled' %}
+          <strong>Auto AI Reply Active (6h Buffer)</strong>
+          <span>If no manual reply is sent, NEXORA will automatically dispatch an AI contextual response <strong>{{ auto_reply_eta }}</strong>.</span>
+        {% elif auto_reply_status == 'dispatching_soon' %}
+          <strong>Auto AI Reply Queued</strong>
+          <span>6-hour inactive threshold reached. Automated reply will be delivered on the next background cycle.</span>
+        {% elif auto_reply_status == 'manual_replied' %}
+          <strong>Manual Reply Sent</strong>
+          <span>This email was already answered manually — automated reply was safely cancelled.</span>
+        {% else %}
+          <strong>Auto AI Reply is OFF</strong>
+          <span>Automated 6-hour replies are currently disabled. Turn on Auto AI Reply from your Dashboard to activate.</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- AI Generated Reply Card -->
+    {% if e.ai_reply %}
+    <div class="nx-ai-reply-card">
+      <div class="nx-ai-reply-head">
+        <div class="nx-ai-reply-title">
+          <span class="nx-sparkle-icon">✦</span>
+          <div>
+            <strong>AI Contextual Reply Draft</strong>
+            <small>Generated by analyzing the entire email content, questions, and tone</small>
+          </div>
+        </div>
+        <div class="nx-ai-reply-actions">
+          <button type="button" class="nx-insert-ai-btn" id="insertAiReplyBtn">
+            ✦ Insert into Reply Form
+          </button>
+          <form method="POST" action="{{ url_for('main.regenerate_ai_reply', email_id=e.id) }}" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="nx-regen-ai-btn" title="Re-read full email and regenerate response">
+              ↺ Regenerate
+            </button>
+          </form>
+        </div>
+      </div>
+      <div class="nx-ai-reply-content">
+        <pre>{{ e.ai_reply }}</pre>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="nx-view-reply-header">
+      <div class="nx-reply-title">
+        <span class="nx-reply-icon">↩</span>
+        <div>
+          <h3>Reply to {{ e.sender or 'Sender' }}</h3>
+          <small>Delivery direct to recipient via connected Gmail account</small>
+        </div>
+      </div>
+    </div>
+
+    <form
+      method="POST"
+      action="{{ url_for('main.reply', email_id=e.id) }}"
+      class="nx-view-reply-form"
+      id="mainReplyForm"
+      enctype="multipart/form-data"
+    >
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ url_for('main.view_email', email_id=e.id) }}">
+
+      <div class="nx-reply-field-meta">
+        <span class="nx-reply-label">To:</span>
+        <span class="nx-reply-to">{{ e.sender or user.email }}</span>
+      </div>
+
+      <div class="nx-reply-textarea-wrap">
+        <textarea
+          name="reply"
+          id="replyTextarea"
+          required
+          rows="8"
+          placeholder="Type your reply message here..."
+        ></textarea>
+      </div>
+
+      <!-- File Attachment Options -->
+      <div class="nx-reply-attachments-bar">
+        <label for="replyAttachmentInput" class="nx-attach-btn" tabindex="0">
+          <span class="nx-attach-icon">📎</span> Attach Files
+        </label>
+        <input
+          type="file"
+          name="attachments"
+          id="replyAttachmentInput"
+          multiple
+          style="display: none;"
+        >
+        <span class="nx-attach-hint">Add documents, images, PDFs (up to 15 MB)</span>
+      </div>
+
+      <!-- Selected files preview list -->
+      <div class="nx-selected-files-list" id="selectedFilesList" style="display: none;"></div>
+
+      <div class="nx-reply-submit-bar">
+        <span class="nx-reply-hint">Press Send to deliver via Gmail</span>
+        <button type="submit" class="nx-primary-btn nx-reply-submit-btn">
+          Send Reply <span>→</span>
+        </button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<script>
+  // Insert AI suggested reply if button clicked
+  const aiBtn = document.getElementById('insertAiReplyBtn');
+  const replyBox = document.getElementById('replyTextarea');
+  {% if e.ai_reply %}
+  const aiSuggestedText = {{ e.ai_reply|tojson }};
+  if (aiBtn && replyBox) {
+    aiBtn.addEventListener('click', function() {
+      replyBox.value = aiSuggestedText;
+      replyBox.focus();
+      replyBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+  {% endif %}
+
+  // Render Formatted HTML Email into Sandboxed Iframe
+  {% if is_html %}
+  (function() {
+    const iframe = document.getElementById('emailBodyIframe');
+    if (iframe) {
+      const rawHtml = {{ sanitized_html|tojson }};
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      doc.open();
+      doc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <base target="_blank">
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              font-size: 14.5px;
+              line-height: 1.65;
+              color: #1e293b;
+              background: #ffffff;
+              margin: 0;
+              padding: 20px;
+              word-break: break-word;
+            }
+            img { max-width: 100%; height: auto; }
+            a { color: #0284c7; text-decoration: underline; }
+            table { max-width: 100%; border-collapse: collapse; }
+            blockquote { margin-left: 0; padding-left: 12px; border-left: 3px solid #cbd5e1; color: #64748b; }
+          </style>
+        </head>
+        <body>${rawHtml}</body>
+        </html>
+      `);
+      doc.close();
+
+      // Ensure all links inside the email body open in a new tab when clicked
+      doc.addEventListener('click', function(ev) {
+        const link = ev.target.closest('a');
+        if (link && link.href) {
+          const href = link.getAttribute('href');
+          if (href && !href.startsWith('#') && !href.toLowerCase().startsWith('javascript:')) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            window.open(link.href, '_blank', 'noopener,noreferrer');
+          }
+        }
+      }, true);
+
+      function resizeIframe() {
+        try {
+          const b = iframe.contentWindow.document.body;
+          const h = iframe.contentWindow.document.documentElement;
+          const height = Math.max(b.scrollHeight, b.offsetHeight, h.clientHeight, h.scrollHeight, h.offsetHeight);
+          iframe.style.height = (height + 32) + 'px';
+        } catch(e) {}
+      }
+      iframe.onload = resizeIframe;
+      setTimeout(resizeIframe, 150);
+      setTimeout(resizeIframe, 600);
+      setTimeout(resizeIframe, 1500);
+    }
+
+    const btnFormatted = document.getElementById('btnViewFormatted');
+    const btnPlain = document.getElementById('btnViewPlain');
+    const formattedCont = document.getElementById('formattedViewContainer');
+    const plainCont = document.getElementById('plainTextViewContainer');
+    if (btnFormatted && btnPlain && formattedCont && plainCont) {
+      btnFormatted.addEventListener('click', function() {
+        btnFormatted.classList.add('active');
+        btnPlain.classList.remove('active');
+        formattedCont.style.display = 'block';
+        plainCont.style.display = 'none';
+      });
+      btnPlain.addEventListener('click', function() {
+        btnPlain.classList.add('active');
+        btnFormatted.classList.remove('active');
+        formattedCont.style.display = 'none';
+        plainCont.style.display = 'block';
+      });
+    }
+  })();
+  {% endif %}
+
+  // Handle File Attachments for Reply
+  (function() {
+    const attachInput = document.getElementById('replyAttachmentInput');
+    const filesList = document.getElementById('selectedFilesList');
+    if (!attachInput || !filesList) return;
+
+    let attachedFiles = [];
+
+    attachInput.addEventListener('change', function(e) {
+      const incoming = Array.from(e.target.files);
+      attachedFiles = attachedFiles.concat(incoming);
+      updateFileList();
+    });
+
+    function updateFileList() {
+      filesList.innerHTML = '';
+      if (attachedFiles.length === 0) {
+        filesList.style.display = 'none';
+        return;
+      }
+      filesList.style.display = 'flex';
+      attachedFiles.forEach((file, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'nx-file-chip';
+        const sizeKb = (file.size / 1024).toFixed(1);
+        chip.innerHTML = `
+          <span class="chip-name">📎 ${escapeHtml(file.name)}</span>
+          <span class="chip-size">(${sizeKb} KB)</span>
+          <button type="button" class="chip-remove" data-index="${idx}" title="Remove file" aria-label="Remove ${escapeHtml(file.name)}">✕</button>
+        `;
+        filesList.appendChild(chip);
+      });
+
+      // Update input files via DataTransfer so form submission includes them
+      try {
+        const dt = new DataTransfer();
+        attachedFiles.forEach(f => dt.items.add(f));
+        attachInput.files = dt.files;
+      } catch(e) {}
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    filesList.addEventListener('click', function(e) {
+      if (e.target.classList.contains('chip-remove')) {
+        const index = parseInt(e.target.getAttribute('data-index'), 10);
+        attachedFiles.splice(index, 1);
+        updateFileList();
+      }
+    });
+  })();
+</script>
+{% endblock %}

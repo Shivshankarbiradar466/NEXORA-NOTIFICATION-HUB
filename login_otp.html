@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}NEXORA · Gmail OTP Verification{% endblock %}
+{% block content %}
+<section class="nx-auth">
+  <div class="nx-auth-showcase">
+    <div class="nx-auth-logo"><span class="nx-logo"><span class="nx-logo-cut"></span></span><div><strong>NEXORA</strong><small>Security Hub</small></div></div>
+    <span class="nx-eyebrow">TWO-STEP IDENTITY VERIFICATION</span>
+    <h1>Strict.<br><span>Time-Limited.</span><br>Protected.</h1>
+    <p>Every login requires fresh Gmail OTP verification with a strict 2-minute expiration window to ensure private workspace protection.</p>
+    <div class="nx-auth-points"><span>01 · 6-DIGIT CODE</span><span>02 · 2-MINUTE WINDOW</span><span>03 · INSTANT ACCESS</span></div>
+  </div>
+
+  <div class="nx-auth-card nx-otp-card">
+    <div class="nx-auth-card-top">
+      <span class="nx-logo small"><span class="nx-logo-cut"></span></span>
+      <span>GMAIL OTP VERIFICATION</span>
+    </div>
+    
+    <h2>Check your Gmail.</h2>
+    <p class="nx-otp-subtext">We dispatched a 6-digit login code to <strong class="nx-highlight-email">{{ masked_email }}</strong>.</p>
+
+    <!-- LIVE 2-MINUTE COUNTDOWN TIMER -->
+    <div class="nx-countdown-widget {% if expired or remaining_seconds <= 0 %}is-expired{% elif remaining_seconds <= 30 %}is-urgent{% elif remaining_seconds <= 60 %}is-warning{% endif %}" id="timerWidget">
+      <div class="nx-timer-icon-wrap">
+        <span class="nx-timer-icon" id="timerIcon">⏳</span>
+      </div>
+      <div class="nx-timer-content">
+        <span class="nx-timer-eyebrow">TIME LIMIT (2 MINUTES)</span>
+        <div class="nx-timer-display">
+          <span class="nx-timer-clock" id="countdownClock">02:00</span>
+          <span class="nx-timer-status" id="timerStatus">
+            {% if expired or remaining_seconds <= 0 %}Expired{% else %}before code expires{% endif %}
+          </span>
+        </div>
+      </div>
+      <div class="nx-timer-bar-wrap">
+        <div class="nx-timer-bar" id="timerBar" style="width: 100%;"></div>
+      </div>
+    </div>
+
+    <!-- Expired Warning Message -->
+    <div class="nx-expired-banner" id="expiredBanner" style="{% if not expired and remaining_seconds > 0 %}display:none;{% endif %}">
+      <span class="banner-icon">⚠️</span>
+      <div>
+        <strong>Verification code expired!</strong>
+        <p>The 2-minute time limit has elapsed. Please click the button below to receive a new code in your Gmail.</p>
+      </div>
+    </div>
+
+    <!-- OTP VERIFICATION FORM -->
+    <form method="POST" action="{{ url_for('auth.login_otp_verify') }}" class="nx-form" id="otpVerifyForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      
+      <label for="otpCodeInput">
+        <span>Enter 6-Digit OTP</span>
+        <input 
+          id="otpCodeInput"
+          type="text" 
+          name="otp" 
+          inputmode="numeric" 
+          pattern="[0-9]{6}" 
+          maxlength="6" 
+          required 
+          autocomplete="one-time-code" 
+          placeholder="••••••" 
+          autofocus 
+          class="nx-otp-input"
+          {% if expired or remaining_seconds <= 0 %}disabled{% endif %}
+        >
+      </label>
+
+      <button class="nx-primary-btn" type="submit" id="submitOtpBtn" {% if expired or remaining_seconds <= 0 %}disabled{% endif %}>
+        Verify OTP & Sign In <span>↗</span>
+      </button>
+    </form>
+
+    <div class="nx-otp-actions">
+      <!-- RESEND OTP FORM -->
+      <form method="POST" action="{{ url_for('auth.login_otp_resend') }}" class="nx-resend-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="nx-resend-btn" id="resendBtn">
+          <span>↻</span> Resend new code to Gmail
+        </button>
+      </form>
+
+      <div class="nx-auth-links">
+        <a href="{{ url_for('auth.login') }}" class="nx-back-link">← Use a different account</a>
+        <a href="{{ url_for('auth.forgot') }}">Forgot password?</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function() {
+  var remaining = parseInt("{{ remaining_seconds }}", 10);
+  if (isNaN(remaining) || remaining < 0) remaining = 0;
+  var totalWindow = 120; // 2 minutes (120 seconds)
+
+  var clockEl = document.getElementById("countdownClock");
+  var statusEl = document.getElementById("timerStatus");
+  var widgetEl = document.getElementById("timerWidget");
+  var barEl = document.getElementById("timerBar");
+  var inputEl = document.getElementById("otpCodeInput");
+  var submitBtn = document.getElementById("submitOtpBtn");
+  var expiredBanner = document.getElementById("expiredBanner");
+  var iconEl = document.getElementById("timerIcon");
+
+  function formatTime(secs) {
+    var m = Math.floor(secs / 60);
+    var s = secs % 60;
+    return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+  }
+
+  function tick() {
+    if (remaining <= 0) {
+      clockEl.textContent = "00:00";
+      statusEl.textContent = "Expired";
+      widgetEl.classList.remove("is-warning", "is-urgent");
+      widgetEl.classList.add("is-expired");
+      if (barEl) barEl.style.width = "0%";
+      if (inputEl) inputEl.disabled = true;
+      if (submitBtn) submitBtn.disabled = true;
+      if (expiredBanner) expiredBanner.style.display = "flex";
+      if (iconEl) iconEl.textContent = "⏰";
+      return;
+    }
+
+    clockEl.textContent = formatTime(remaining);
+    var pct = Math.max(0, Math.min(100, (remaining / totalWindow) * 100));
+    if (barEl) barEl.style.width = pct + "%";
+
+    if (remaining <= 30) {
+      widgetEl.classList.remove("is-warning");
+      widgetEl.classList.add("is-urgent");
+      statusEl.textContent = "Expiring soon!";
+    } else if (remaining <= 60) {
+      widgetEl.classList.add("is-warning");
+      statusEl.textContent = "Less than 1 min left";
+    }
+
+    remaining--;
+    setTimeout(tick, 1000);
+  }
+
+  tick();
+
+  // Sanitize numeric input (strictly waits for manual button click to submit)
+  if (inputEl) {
+    inputEl.addEventListener("input", function(e) {
+      this.value = this.value.replace(/[^0-9]/g, "");
+    });
+  }
+})();
+</script>
+{% endblock %}

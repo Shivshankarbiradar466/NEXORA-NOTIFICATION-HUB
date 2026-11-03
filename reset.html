@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}NEXORA · Reset Password via Direct Link{% endblock %}
+{% block content %}
+<section class="auth-page compact-auth">
+    <div class="auth-card">
+        <div class="mini-logo">N</div>
+        <span class="kicker">OPTION 2 · DIRECT LINK RESET</span>
+        <h2>Choose a new password.</h2>
+        <p class="muted">You accessed this reset page using the secure 1-click link sent directly to your Gmail{% if email %} (<strong>{{ email }}</strong>){% endif %}.</p>
+
+        <form method="POST" class="form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <label>New password (minimum 12 characters)
+                <input type="password" name="password" minlength="12" required placeholder="••••••••••••" autofocus>
+            </label>
+
+            <label>Confirm new password
+                <input type="password" name="confirm_password" minlength="12" required placeholder="••••••••••••">
+            </label>
+
+            <button class="button primary" type="submit">Update Password ↗</button>
+        </form>
+
+        <div style="background:#09121f; border:1px solid #1c2b3e; border-radius:10px; padding:12px 14px; margin-top:18px; font-size:12px; color:#8ba0be; line-height:1.5;">
+            <span style="color:#d5e5fa;">Prefer to reset using your 6-digit OTP code?</span><br>
+            <a href="{{ url_for('auth.reset_password_otp', email=email or '') }}" style="color:#60a5fa; font-weight:600; text-decoration:none;">Switch to OTP verification page ↗</a>
+        </div>
+
+        <div class="auth-links single" style="margin-top:18px; text-align:center;">
+            <a href="{{ url_for('auth.login') }}">Back to sign in</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

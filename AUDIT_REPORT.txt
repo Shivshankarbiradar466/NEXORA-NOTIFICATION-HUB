@@ -1,0 +1,35 @@
+NEXORA Notification Hub v4.2 — implementation and validation report
+
+IMPLEMENTED
+- Preserved existing dark dashboard design and core Flask/Gmail/WhatsApp flows.
+- Added account-scoped Ask NEXORA assistant for grounded email search, summaries, attachment text search, spam/phishing results, and task lookup.
+- Added metadata and bounded text extraction for PDF, DOCX, TXT, CSV and HTML attachments. Attachment binaries are not stored locally or executed.
+- Added paginated full-label Gmail initial sync using in:anywhere, including Sent, Drafts, Spam and Trash. Later scans refresh the last 30 days and update label/read/trash state for messages found in that window.
+- Added Sent, Drafts, Promotions, Social and Updates dashboard views, searchable records and 50-item pagination.
+- Added task suggestions from email and extracted document text, explicit task acceptance, and one-time WhatsApp reminders for accepted tasks approaching or recently past due.
+- Updated Windows launcher to start Flask, Celery worker and Celery Beat separately.
+- Added migration for Gmail labels, attachment records, and reminder state.
+
+VALIDATION PERFORMED
+- Python syntax compilation passed.
+- Jinja syntax parsing passed for all 17 HTML templates.
+- Nine pure-Python tests passed.
+
+NOT VERIFIED HERE
+- Flask application boot and route tests: runtime Flask/Flask-SQLAlchemy/Google API dependencies are not installed in this build environment.
+- Migration execution against the user's PostgreSQL database.
+- Live Gmail OAuth/API, Redis/Memurai, Celery Beat, and Twilio delivery.
+
+IMPORTANT LIMITATIONS
+- Ask NEXORA uses grounded local retrieval rather than a paid generative model. It only searches messages already synchronized into the current user's account.
+- Initial sync can take time. Later scans refresh a 30-day window; Gmail History API incremental synchronization is not implemented.
+- Scanned/encrypted PDFs may not yield text. OCR and malware scanning are not included.
+- The spam dataset is a small synthetic starter dataset and phishing detection is heuristic; neither is production-grade without additional evaluation.
+- NEXORA sender blocking does not create Gmail server-side filters.
+- WhatsApp reminders require valid Twilio settings, a configured destination, and both worker and Beat running. Provider acceptance does not guarantee handset delivery.
+
+SAFE SETUP
+1. Keep the current working folder and database backup.
+2. Never distribute .env or real credentials. Use .env.example and rotate any credentials exposed in earlier archives.
+3. Inspect the current Alembic revision and heads before applying db upgrade. Only upgrade a database that belongs to this migration chain.
+4. Install requirements, run tests, then perform a controlled Gmail sync and WhatsApp test before relying on automation.

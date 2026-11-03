@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}NEXORA · Ask NEXORA{% endblock %}
+{% block content %}
+<section class="nx-welcome"><div><span class="nx-eyebrow">EMAIL INTELLIGENCE · PERSONAL ASSISTANT</span><h1>Ask NEXORA</h1><p>Search your synced emails, inspect attachment text, review suspicious messages, and find suggested tasks. Answers are grounded in the records currently stored in your account.</p></div></section>
+<section class="nx-card" style="padding:24px;max-width:1000px;">
+  <div class="nx-card-head"><div><div class="nx-card-title">Your email assistant</div><small>Private to your signed-in account · Does not send or delete emails</small></div><span class="nx-badge">Grounded search</span></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 18px;">
+    {% for prompt in ["Summarize my inbox", "Find tasks and deadlines", "Search attachments", "Show suspicious emails", "Find timetable"] %}
+    <button type="button" class="nx-link-btn ask-prompt" data-prompt="{{ prompt }}">{{ prompt }}</button>
+    {% endfor %}
+  </div>
+  <div id="assistantMessages" aria-live="polite" style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px;">
+    <article style="padding:14px;border-radius:14px;background:rgba(84,140,255,.08);border:1px solid rgba(84,140,255,.18);"><strong>NEXORA</strong><p style="margin:6px 0 0;">Hi! Ask me to find an email, summarize stored messages, search document text, list deadlines, or explain suspicious-email warnings.</p></article>
+  </div>
+  <form id="assistantForm" style="display:flex;gap:10px;align-items:flex-end;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <textarea id="assistantQuestion" name="question" required maxlength="500" rows="2" placeholder="Ask about your emails or attachments…" style="flex:1;min-width:0;resize:vertical;padding:13px 15px;border:1px solid rgba(120,150,190,.3);border-radius:12px;background:rgba(8,20,40,.45);color:inherit;font:inherit;"></textarea>
+    <button class="nx-primary-btn" type="submit" id="assistantSend">Ask →</button>
+  </form>
+  <p class="nx-confidence" style="margin-top:12px;">Accuracy note: NEXORA searches synced records. It may not know about mail that has not been synchronized, and extracted dates or AI summaries should be checked against the original source.</p>
+</section>
+<script>
+(() => {
+  const form = document.getElementById('assistantForm');
+  const input = document.getElementById('assistantQuestion');
+  const messages = document.getElementById('assistantMessages');
+  const send = document.getElementById('assistantSend');
+  const endpoint = {{ url_for('main.chat')|tojson }};
+  function addMessage(who, text, sources) {
+    const card = document.createElement('article');
+    card.style.cssText = 'padding:14px;border-radius:14px;border:1px solid rgba(120,150,190,.18);background:rgba(120,150,190,.05);';
+    const heading = document.createElement('strong'); heading.textContent = who; card.appendChild(heading);
+    const paragraph = document.createElement('p'); paragraph.style.margin = '6px 0 0'; paragraph.style.whiteSpace = 'pre-wrap'; paragraph.textContent = text; card.appendChild(paragraph);
+    (sources || []).forEach(source => {
+      const item = document.createElement('div'); item.style.cssText = 'margin-top:10px;padding:10px;border-radius:10px;background:rgba(84,140,255,.07);';
+      const title = document.createElement('strong'); title.textContent = source.subject || '(Untitled source)'; item.appendChild(title);
+      const sender = document.createElement('div'); sender.className = 'nx-confidence'; sender.textContent = source.sender || ''; item.appendChild(sender);
+      const summary = document.createElement('p'); summary.style.cssText = 'margin:5px 0;white-space:pre-wrap;'; summary.textContent = source.summary || ''; item.appendChild(summary);
+      if (source.id) { const link = document.createElement('a'); link.className = 'nx-link-btn'; link.href = {{ url_for('main.dashboard', view='all')|tojson }} + '#email-' + encodeURIComponent(source.id); link.textContent = 'Open source in All Mail'; item.appendChild(link); }
+      card.appendChild(item);
+    });
+    messages.appendChild(card); card.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+  async function ask(question) {
+    if (!question.trim()) return;
+    addMessage('You', question);
+    input.value = ''; send.disabled = true; send.textContent = 'Searching…';
+    try {
+      const data = new URLSearchParams(); data.set('question', question); data.set('csrf_token', form.querySelector('[name="csrf_token"]').value);
+      const response = await fetch(endpoint, {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:data.toString(),credentials:'same-origin'});
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'The assistant request failed.');
+      addMessage('NEXORA', result.answer || 'No answer returned.', result.sources || []);
+    } catch (error) { addMessage('NEXORA', error.message || 'Unable to search right now. Please try again.'); }
+    finally { send.disabled = false; send.textContent = 'Ask →'; input.focus(); }
+  }
+  form.addEventListener('submit', event => { event.preventDefault(); ask(input.value); });
+  document.querySelectorAll('.ask-prompt').forEach(button => button.addEventListener('click', () => ask(button.dataset.prompt || '')));
+})();
+</script>
+{% endblock %}

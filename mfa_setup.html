@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}NEXORA · Set up MFA{% endblock %}
+{% block content %}
+<section class="hero"><div><span class="kicker">ACCOUNT SECURITY</span><h1>Set up MFA.</h1><p>Enter the secret in your authenticator app, then verify a code.</p></div></section>
+<section class="panel" style="max-width:850px;margin:auto"><h2>Authenticator setup</h2><p class="muted">Add this account manually in your authenticator app.</p><label>Secret key</label><p><code>{{ secret }}</code></p><label>Provisioning URI</label><p style="overflow-wrap:anywhere"><code>{{ provisioning_uri }}</code></p><h3>One-time backup codes</h3><p class="muted">Save these offline. Each code can be used once.</p><ul>{% for code in backup_codes %}<li><code>{{ code }}</code></li>{% endfor %}</ul><form method="POST" action="{{ url_for('auth.mfa_confirm') }}" class="form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>6-digit authenticator code<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required></label><button class="button primary" type="submit">Confirm and enable MFA</button></form></section>
+{% endblock %}

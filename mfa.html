@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}NEXORA · Verify sign-in{% endblock %}
+{% block content %}
+<section class="auth-page compact-auth"><div class="auth-card"><div class="mini-logo">N</div><span class="kicker">MULTI-FACTOR AUTHENTICATION</span><h2>Verify it's you.</h2><p class="muted">Enter the current 6-digit code from your authenticator app, or a one-time backup code.</p><form method="POST" class="form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Verification code<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="32" required autofocus></label><button class="button primary" type="submit">Verify and continue ↗</button></form></div></section>
+{% endblock %}

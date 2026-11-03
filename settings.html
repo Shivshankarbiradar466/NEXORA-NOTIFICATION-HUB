@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}NEXORA · Settings{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div>
+    <span class="kicker">PREFERENCES & SECURITY</span>
+    <h1>Settings.</h1>
+    <p>Manage your Google connection and account security.</p>
+  </div>
+</section>
+
+<div class="profile-grid">
+  <section class="panel">
+    <span class="kicker">GOOGLE CONNECTION</span>
+    <h2>Connections</h2>
+    <p class="muted">
+      Google status:
+      <strong>{{ 'Connected' if user.google_sub else 'Not connected' }}</strong>.
+      Disconnecting Google also stops background monitoring.
+    </p>
+    <div class="stack">
+      <a class="button primary wide"
+         href="{{ url_for('oauth.google_login') }}">
+        {{ 'Re-authenticate Google' if user.google_sub else 'Connect Google' }} ↗
+      </a>
+      {% if user.google_sub %}
+      <form method="POST" action="{{ url_for('oauth.google_disconnect') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="button ghost danger wide">
+          Disconnect Google
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <span class="kicker">ACCOUNT SECURITY</span>
+    <h2>Local password</h2>
+    <p class="muted">Use password recovery to reset your local NEXORA password.</p>
+    <div class="stack">
+      <a class="button ghost wide" href="{{ url_for('auth.forgot') }}">
+        Reset local password
+      </a>
+    </div>
+  </section>
+
+  <section class="panel">
+    <span class="kicker">TWO-FACTOR AUTHENTICATION</span>
+    <h2>2-Step Verification</h2>
+    <p class="muted">
+      Status: <strong>{{ 'Active (ON)' if user.mfa_enabled else 'Disabled (OFF)' }}</strong>.
+      Manage 2-Step Verification directly on your Google Account or toggle it here.
+    </p>
+    <div class="stack">
+      <form method="POST" action="{{ url_for('main.toggle_mfa') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="{{ 'stop' if user.mfa_enabled else 'start' }}">
+        <button type="submit" class="button {{ 'ghost danger' if user.mfa_enabled else 'primary' }} wide">
+          {{ 'Turn Off 2-Step Verification' if user.mfa_enabled else 'Turn On 2-Step Verification' }}
+        </button>
+      </form>
+      <a class="button primary wide" href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank" rel="noopener noreferrer">
+        Manage Google Account 2-Step Verification ↗
+      </a>
+    </div>
+  </section>
+
+  <section class="panel">
+    <span class="kicker">WHATSAPP ALERTS</span>
+    <h2>Twilio Sandbox</h2>
+    <p class="muted">
+      Status: <strong>{{ user.whatsapp_number or 'Not connected' }}</strong>.
+      Scan the Twilio QR code to activate alerts.
+    </p>
+    <div class="stack">
+      <a class="button primary wide" href="{{ url_for('main.dashboard') }}#whatsapp">
+        Manage WhatsApp & Scan QR Code ↗
+      </a>
+    </div>
+  </section>
+</div>
+{% endblock %}

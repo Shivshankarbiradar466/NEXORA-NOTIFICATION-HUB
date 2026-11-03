@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}NEXORA · Create account & Twilio Sandbox{% endblock %}
+{% block content %}
+<section class="nx-auth nx-register-auth">
+  <!-- Left Side: Twilio WhatsApp Sandbox Showcase & QR Code -->
+  <div class="nx-auth-showcase nx-qr-showcase">
+    <div class="nx-auth-logo">
+      <span class="nx-logo"><span class="nx-logo-cut"></span></span>
+      <div><strong>NEXORA</strong><small>Notification Hub</small></div>
+    </div>
+
+    <span class="nx-eyebrow">TWILIO WHATSAPP SANDBOX</span>
+    <h1>Connect WhatsApp.<br><span>Real-time alerts.</span></h1>
+    <p>Scan the Twilio WhatsApp Sandbox QR code on your mobile device to receive automated email summaries, critical inbox notifications, and security alerts directly on WhatsApp.</p>
+
+    <!-- Twilio Sandbox QR Code Card -->
+    <div class="nx-qr-card">
+      <div class="nx-qr-title">Scan the QR code on mobile</div>
+      <div class="nx-qr-img-wrapper">
+        <img
+          src="{{ url_for('static', filename='img/twilio_sandbox_qr.png') }}"
+          alt="Twilio WhatsApp Sandbox QR Code"
+          class="nx-qr-image"
+          width="220"
+          height="220"
+        >
+      </div>
+      <div class="nx-qr-subtitle">Twilio WhatsApp Sandbox</div>
+
+      <div class="nx-qr-instructions">
+        <div class="nx-qr-step">
+          <span class="nx-step-num">1</span>
+          <span>Scan the QR code with your phone camera or WhatsApp.</span>
+        </div>
+        <div class="nx-qr-step">
+          <span class="nx-step-num">2</span>
+          <span>Send the message: <strong class="nx-code-pill">join refused-sea</strong></span>
+        </div>
+        <div class="nx-qr-step">
+          <span class="nx-step-num">3</span>
+          <span>Twilio Sandbox Number: <strong class="nx-num-pill">+1 415 523 8886</strong></span>
+        </div>
+      </div>
+
+      <div class="nx-qr-actions">
+        <a
+          href="https://wa.me/14155238886?text=join%20refused-sea"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="nx-wa-direct-btn"
+        >
+          <span>📱 Open in WhatsApp (join refused-sea) ↗</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Side: Account Creation Form -->
+  <div class="nx-auth-card">
+    <div class="nx-auth-card-top">
+      <span class="nx-logo small"><span class="nx-logo-cut"></span></span>
+      <span>CREATE WORKSPACE</span>
+    </div>
+    <h2>Build your account.</h2>
+    <p>Set up your profile and configure your WhatsApp destination.</p>
+
+    <form method="POST" action="{{ url_for('auth.register') }}" class="nx-form" id="registerForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <label>
+        Display name
+        <input
+          name="username"
+          value="{{ username or '' }}"
+          autocomplete="username"
+          required
+          placeholder="e.g. Sharath"
+          minlength="3"
+          maxlength="80"
+        >
+      </label>
+
+      <label>
+        Account email
+        <input
+          type="email"
+          name="email"
+          value="{{ email or '' }}"
+          autocomplete="email"
+          required
+          placeholder="you@example.com"
+        >
+      </label>
+
+      <label>
+        WhatsApp number (with country code)
+        <div class="nx-input-action-wrap">
+          <input
+            type="tel"
+            name="whatsapp_number"
+            id="regWhatsappNumber"
+            value="{{ whatsapp_number or '' }}"
+            placeholder="+919019665808"
+            autocomplete="tel"
+          >
+          <button
+            type="button"
+            class="nx-try-btn"
+            id="btnTryWhatsapp"
+            title="Scan QR code on left and test message delivery"
+          >
+            ⚡ Scan & Try
+          </button>
+        </div>
+        <small class="nx-field-hint">Scan the QR code first, then click <strong>Scan & Try</strong> to test immediate delivery.</small>
+      </label>
+
+      <!-- Live Test Result Banner -->
+      <div id="tryAlertFeedback" class="nx-try-feedback" style="display:none;" role="status"></div>
+
+      <label>
+        Password (min 12 characters)
+        <input
+          type="password"
+          name="password"
+          minlength="12"
+          autocomplete="new-password"
+          required
+          placeholder="••••••••••••"
+        >
+      </label>
+
+      <label>
+        Confirm password
+        <input
+          type="password"
+          name="confirm_password"
+          minlength="12"
+          autocomplete="new-password"
+          required
+          placeholder="••••••••••••"
+        >
+      </label>
+
+      <button class="nx-primary-btn" type="submit" id="btnRegisterSubmit">
+        Create account & connect <span>↗</span>
+      </button>
+    </form>
+
+    <div class="nx-auth-links single">
+      <a href="{{ url_for('auth.login') }}">Already have an account? Sign in</a>
+    </div>
+
+    <small class="nx-auth-note">
+      Connecting WhatsApp requires joining the Twilio Sandbox once by scanning the QR code and sending the join code.
+    </small>
+  </div>
+</section>
+
+<script>
+(function() {
+  const tryBtn = document.getElementById("btnTryWhatsapp");
+  const phoneInput = document.getElementById("regWhatsappNumber");
+  const feedback = document.getElementById("tryAlertFeedback");
+
+  if (!tryBtn || !phoneInput || !feedback) return;
+
+  tryBtn.addEventListener("click", async function() {
+    const rawNumber = (phoneInput.value || "").trim();
+    if (!rawNumber) {
+      feedback.style.display = "block";
+      feedback.className = "nx-try-feedback error";
+      feedback.innerHTML = "⚠️ Please enter your WhatsApp number with country code first (e.g. <code>+919019665808</code>).";
+      phoneInput.focus();
+      return;
+    }
+
+    tryBtn.disabled = true;
+    const originalText = tryBtn.innerHTML;
+    tryBtn.innerHTML = "<span>Sending...</span>";
+
+    feedback.style.display = "block";
+    feedback.className = "nx-try-feedback info";
+    feedback.innerHTML = "⏳ Sending test message via Twilio Sandbox...";
+
+    try {
+      const response = await fetch("{{ url_for('auth.try_whatsapp_test') }}", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": "{{ csrf_token() }}"
+        },
+        body: JSON.stringify({ whatsapp_number: rawNumber })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.ok) {
+        feedback.className = "nx-try-feedback success";
+        feedback.innerHTML = `✅ <strong>Success!</strong> ${data.message} Your WhatsApp is connected to Twilio Sandbox.`;
+      } else {
+        feedback.className = "nx-try-feedback error";
+        const errorText = data.error || "Could not deliver WhatsApp test message.";
+        feedback.innerHTML = `⚠️ <strong>Twilio Notice:</strong> ${errorText}<br><small>Did you scan the QR code and send <strong>join refused-sea</strong> in WhatsApp?</small>`;
+      }
+    } catch (err) {
+      feedback.className = "nx-try-feedback error";
+      feedback.innerHTML = `⚠️ <strong>Error:</strong> Request failed. Please check network and try again.`;
+    } finally {
+      tryBtn.disabled = false;
+      tryBtn.innerHTML = originalText;
+    }
+  });
+})();
+</script>
+{% endblock %}

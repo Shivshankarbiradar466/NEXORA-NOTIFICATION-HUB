@@ -1,0 +1,648 @@
+{% extends "base.html" %}
+
+{% block title %}NEXORA · Tasks & Deadlines{% endblock %}
+
+{% block content %}
+<section class="nx-welcome">
+  <div>
+    <span class="nx-eyebrow">EMAIL INTELLIGENCE · ACTION ITEMS</span>
+    <h1>Tasks & Deadlines</h1>
+    <p>Action items and deadlines extracted from your incoming emails with full sender and timestamp tracking.</p>
+  </div>
+  <div class="nx-welcome-actions">
+    <a class="nx-primary-btn" href="{{ url_for('main.dashboard', view='inbox') }}">
+      <span>✉</span> Open Inbox
+    </a>
+  </div>
+</section>
+
+<!-- Tasks Overview Summary Ribbon -->
+{% set total_tasks = tasks|length %}
+{% set open_count = tasks|selectattr('status', 'in', ['open', 'suggested'])|list|length %}
+{% set done_count = tasks|selectattr('status', 'equalto', 'done')|list|length %}
+{% set deadline_count = tasks|selectattr('due_at')|list|length %}
+
+<section class="nx-stat-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 20px;">
+  <article class="nx-stat-card">
+    <div class="nx-stat-icon mail">📋</div>
+    <div>
+      <span>Total Tasks</span>
+      <strong>{{ total_tasks }}</strong>
+      <small>All extracted items</small>
+    </div>
+  </article>
+
+  <article class="nx-stat-card">
+    <div class="nx-stat-icon alerts" style="background: rgba(2, 132, 199, 0.2); color: #38bdf8;">⚡</div>
+    <div>
+      <span>Active / Pending</span>
+      <strong>{{ open_count }}</strong>
+      <small>Needs attention</small>
+    </div>
+  </article>
+
+  <article class="nx-stat-card">
+    <div class="nx-stat-icon important">⏰</div>
+    <div>
+      <span>With Deadlines</span>
+      <strong>{{ deadline_count }}</strong>
+      <small>Due dates detected</small>
+    </div>
+  </article>
+
+  <article class="nx-stat-card">
+    <div class="nx-stat-icon confidential" style="background: rgba(22, 163, 74, 0.2); color: #4ade80;">✓</div>
+    <div>
+      <span>Completed</span>
+      <strong>{{ done_count }}</strong>
+      <small>Resolved action items</small>
+    </div>
+  </article>
+</section>
+
+<!-- Main Tasks Section -->
+<section class="nx-card nx-tasks-container">
+  <div class="nx-card-head" style="flex-wrap: wrap; gap: 14px;">
+    <div>
+      <div class="nx-card-title">
+        <span class="nx-card-icon">📌</span>
+        <div>
+          <h3>Action Items & Extracted Deadlines</h3>
+          <p>Review sender provenance, arrival time, and deadlines for each item</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Pills -->
+    <div class="nx-task-filters">
+      <button type="button" class="nx-filter-pill active" data-filter="all">All ({{ total_tasks }})</button>
+      <button type="button" class="nx-filter-pill" data-filter="pending">Pending ({{ open_count }})</button>
+      <button type="button" class="nx-filter-pill" data-filter="deadlines">Has Deadline ({{ deadline_count }})</button>
+      <button type="button" class="nx-filter-pill" data-filter="done">Completed ({{ done_count }})</button>
+    </div>
+  </div>
+
+  <div class="nx-tasks-list" id="tasksList">
+    {% for task in tasks %}
+    {% set is_open = task.status in ['open', 'suggested'] %}
+    {% set has_due = task.due_at is not none %}
+    <article
+      class="nx-task-card nx-task-status-{{ task.status }}"
+      data-status="{{ 'done' if task.status == 'done' else ('pending' if is_open else 'dismissed') }}"
+      data-has-deadline="{{ 'true' if has_due else 'false' }}"
+    >
+      <!-- Top Source Banner: Sender Provenance & Date Received -->
+      <div class="nx-task-source-banner">
+        <div class="nx-task-sender-info">
+          {% if task.email and task.email.sender %}
+            <div class="nx-sender-avatar small">{{ (task.email.sender or '?')[:1]|upper }}</div>
+            <div class="nx-task-sender-text">
+              <div class="nx-task-sender-line">
+                <span class="nx-task-meta-label">From:</span>
+                <strong class="nx-task-sender-name" title="{{ task.email.sender }}">{{ task.email.sender }}</strong>
+              </div>
+              {% if task.email.received_at %}
+              <div class="nx-task-received-line">
+                <span class="nx-task-meta-label">Received:</span>
+                <time class="nx-task-received-time" title="{{ task.email.received_at.isoformat() }}">
+                  📅 {{ task.email.received_at.strftime('%a, %d %b %Y · %I:%M %p') }}
+                </time>
+              </div>
+              {% endif %}
+            </div>
+          {% else %}
+            <div class="nx-sender-avatar small">📋</div>
+            <div class="nx-task-sender-text">
+              <div class="nx-task-sender-line">
+                <span class="nx-task-meta-label">Origin:</span>
+                <strong class="nx-task-sender-name">Manual / Background Sync</strong>
+              </div>
+              <div class="nx-task-received-line">
+                <span class="nx-task-meta-label">Added:</span>
+                <time class="nx-task-received-time">📅 {{ task.created_at.strftime('%a, %d %b %Y · %I:%M %p') if task.created_at else 'Recently' }}</time>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+
+        {% if task.email %}
+        <div class="nx-task-email-link-wrap">
+          <button
+            type="button"
+            class="nx-task-view-email-btn js-open-email-modal"
+            data-email-id="{{ task.email.id }}"
+            title="Open and read source email directly"
+          >
+            <span class="nx-email-btn-icon">✉</span>
+            <span class="nx-email-subject-truncate">{{ task.email.subject or '(No subject)' }}</span>
+            <span class="nx-email-btn-badge">Open & Read</span>
+          </button>
+          <a
+            href="{{ url_for('main.view_email', email_id=task.email.id) }}"
+            class="nx-task-external-email-btn"
+            title="Open full email page in new tab"
+            target="_blank"
+            rel="noopener noreferrer"
+          >↗</a>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Task Details Body -->
+      <div class="nx-task-body">
+        <div class="nx-task-title-row">
+          <div class="nx-task-title-group">
+            <span class="nx-task-status-pill {{ task.status }}">
+              {% if task.status == 'done' %}
+                ✓ Completed
+              {% elif task.status == 'open' %}
+                ● Active
+              {% elif task.status == 'suggested' %}
+                ✦ AI Suggested
+              {% else %}
+                ✕ Dismissed
+              {% endif %}
+            </span>
+            <h4 class="nx-task-title">{{ task.title }}</h4>
+          </div>
+
+          <!-- Deadline Display -->
+          <div class="nx-task-deadline-badge {% if task.due_at %}has-due{% else %}no-due{% endif %}">
+            {% if task.due_at %}
+              <span class="nx-deadline-icon">⏰</span>
+              <div class="nx-deadline-content">
+                <span class="nx-deadline-tag">Target Deadline</span>
+                <strong class="nx-deadline-date">{{ task.due_at.strftime('%d %b %Y, %I:%M %p') }}</strong>
+              </div>
+            {% else %}
+              <span class="nx-deadline-none">No specific deadline</span>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if task.source_text %}
+        <div class="nx-task-source-quote">
+          <span class="nx-quote-icon">❝</span>
+          <p>{{ task.source_text }}</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Task Action Buttons Footer -->
+      <div class="nx-task-footer">
+        <div class="nx-task-meta-notes">
+          <small>Task #{{ task.id }}{% if task.due_at %} · Reminder sync enabled{% endif %}</small>
+        </div>
+        <div class="nx-task-action-btns">
+          {% if task.email %}
+          <button
+            type="button"
+            class="nx-task-btn read-mail js-open-email-modal"
+            data-email-id="{{ task.email.id }}"
+            title="Open and read source email directly"
+          >
+            <span>✉</span> Open & Read Mail
+          </button>
+          {% endif %}
+
+          {% if task.status == 'suggested' %}
+          <form method="POST" action="{{ url_for('main.task_status', task_id=task.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="open">
+            <button class="nx-task-btn primary" type="submit">✓ Accept & Remind</button>
+          </form>
+          {% endif %}
+
+          {% if task.status != 'done' %}
+          <form method="POST" action="{{ url_for('main.task_status', task_id=task.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="done">
+            <button class="nx-task-btn success" type="submit">✓ Mark Done</button>
+          </form>
+          {% endif %}
+
+          {% if task.status not in ['dismissed', 'done'] %}
+          <form method="POST" action="{{ url_for('main.task_status', task_id=task.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="dismissed">
+            <button class="nx-task-btn outline-danger" type="submit">Dismiss</button>
+          </form>
+          {% endif %}
+
+          {% if task.status in ['done', 'dismissed'] %}
+          <form method="POST" action="{{ url_for('main.task_status', task_id=task.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="open">
+            <button class="nx-task-btn outline" type="submit">↺ Reopen</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </article>
+    {% else %}
+    <div class="nx-empty" style="padding: 60px 20px;">
+      <div style="font-size: 32px; margin-bottom: 12px;">✓</div>
+      <h3>No Action Items Yet</h3>
+      <p>When you receive emails containing actionable requests, deadlines, or meeting proposals, NEXORA will automatically extract and highlight them here.</p>
+      <a href="{{ url_for('main.dashboard') }}" class="nx-primary-btn" style="margin-top: 15px;">
+        Return to Mailbox →
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- Direct Email Reader In-Page Modal -->
+<div id="emailReaderModal" class="nx-reader-modal" aria-hidden="true" role="dialog" aria-labelledby="modalEmailSubject">
+  <div class="nx-reader-overlay js-close-modal"></div>
+  <div class="nx-reader-container" role="document">
+    <!-- Modal Header -->
+    <header class="nx-reader-header">
+      <div class="nx-reader-header-left">
+        <div class="nx-reader-badges" id="modalBadges"></div>
+        <h2 id="modalEmailSubject" class="nx-reader-subject">Loading email...</h2>
+        <div class="nx-reader-parties">
+          <div class="nx-sender-avatar" id="modalSenderAvatar">?</div>
+          <div class="nx-reader-parties-text">
+            <div class="nx-reader-sender-row">
+              <span class="nx-reader-meta-label">From:</span>
+              <strong id="modalSenderName" class="nx-reader-sender-name">—</strong>
+            </div>
+            <div class="nx-reader-meta-sub">
+              <span>to <span id="modalRecipient">—</span></span>
+              <span class="nx-meta-dot">·</span>
+              <time id="modalReceivedTime">—</time>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="nx-reader-header-actions">
+        <a id="modalFullPageBtn" href="#" class="nx-reader-btn-action" target="_blank" rel="noopener noreferrer" title="Open full email page in a new window">
+          <span>Full Page</span> ↗
+        </a>
+        <button type="button" class="nx-reader-btn-close js-close-modal" aria-label="Close modal">✕</button>
+      </div>
+    </header>
+
+    <!-- Modal Content Body -->
+    <div class="nx-reader-content" id="modalBodyWrapper">
+      <!-- Loading State -->
+      <div class="nx-reader-loading" id="modalLoadingState">
+        <div class="nx-reader-spinner"></div>
+        <p>Loading email content and intelligence...</p>
+      </div>
+
+      <!-- Error State -->
+      <div class="nx-reader-error" id="modalErrorState" style="display: none;">
+        <div class="nx-reader-error-icon">⚠</div>
+        <h4>Could not load email content</h4>
+        <p id="modalErrorMessage">An error occurred while fetching the email details.</p>
+        <button type="button" class="nx-task-btn primary js-retry-modal">Try Again</button>
+      </div>
+
+      <!-- Loaded Content -->
+      <div class="nx-reader-details" id="modalLoadedState" style="display: none;">
+        <!-- AI Summary Ribbon -->
+        <div class="nx-reader-summary-box" id="modalSummaryBox" style="display: none;">
+          <div class="nx-reader-summary-badge">✦ AI Executive Summary</div>
+          <p id="modalSummaryText" class="nx-reader-summary-text"></p>
+        </div>
+
+        <!-- Mode Toggle if HTML -->
+        <div class="nx-view-mode-bar" id="modalModeBar" style="display: none;">
+          <span class="nx-view-mode-label">Display Mode:</span>
+          <button type="button" class="nx-view-toggle-btn active" id="modalBtnFormatted">✉ Formatted Email</button>
+          <button type="button" class="nx-view-toggle-btn" id="modalBtnPlain">📄 Text Only</button>
+        </div>
+
+        <!-- HTML Frame -->
+        <div class="nx-email-frame-container" id="modalFormattedContainer" style="display: none;">
+          <iframe
+            id="modalEmailIframe"
+            class="nx-reader-iframe"
+            sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+            title="Formatted Email Content"
+          ></iframe>
+        </div>
+
+        <!-- Plain Text Container -->
+        <div class="nx-email-view-body nx-reader-plain-text" id="modalPlainContainer" style="display: none;"></div>
+
+        <!-- Attachments -->
+        <div class="nx-reader-attachments" id="modalAttachmentsBox" style="display: none;">
+          <h4><span>📎</span> Attachments (<span id="modalAttachmentCount">0</span>)</h4>
+          <div class="nx-attachments-grid" id="modalAttachmentsGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <footer class="nx-reader-footer">
+      <div class="nx-reader-footer-left">
+        <small class="nx-reader-footer-hint">Press <kbd>Esc</kbd> or click outside to close</small>
+      </div>
+      <div class="nx-reader-footer-right">
+        <a id="modalReplyBtn" href="#" class="nx-task-btn primary" target="_blank" rel="noopener noreferrer">
+          ↩ Reply via Gmail
+        </a>
+        <button type="button" class="nx-task-btn outline js-close-modal">Close</button>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- Filter & Email Reader Script -->
+<script>
+(function() {
+  // --- Task Filter Pills ---
+  const pills = document.querySelectorAll('.nx-filter-pill');
+  const cards = document.querySelectorAll('.nx-task-card');
+
+  pills.forEach(pill => {
+    pill.addEventListener('click', function() {
+      pills.forEach(p => p.classList.remove('active'));
+      this.classList.add('active');
+
+      const filter = this.getAttribute('data-filter');
+      cards.forEach(card => {
+        const status = card.getAttribute('data-status');
+        const hasDeadline = card.getAttribute('data-has-deadline') === 'true';
+
+        let show = false;
+        if (filter === 'all') {
+          show = true;
+        } else if (filter === 'pending') {
+          show = (status === 'pending');
+        } else if (filter === 'deadlines') {
+          show = hasDeadline;
+        } else if (filter === 'done') {
+          show = (status === 'done');
+        }
+
+        card.style.display = show ? 'flex' : 'none';
+      });
+    });
+  });
+
+  // --- Email Reader Modal ---
+  const modal = document.getElementById('emailReaderModal');
+  if (!modal) return;
+
+  const loadingState = document.getElementById('modalLoadingState');
+  const errorState = document.getElementById('modalErrorState');
+  const loadedState = document.getElementById('modalLoadedState');
+  const subjectEl = document.getElementById('modalEmailSubject');
+  const senderAvatarEl = document.getElementById('modalSenderAvatar');
+  const senderNameEl = document.getElementById('modalSenderName');
+  const recipientEl = document.getElementById('modalRecipient');
+  const receivedTimeEl = document.getElementById('modalReceivedTime');
+  const badgesEl = document.getElementById('modalBadges');
+  const summaryBox = document.getElementById('modalSummaryBox');
+  const summaryText = document.getElementById('modalSummaryText');
+  const modeBar = document.getElementById('modalModeBar');
+  const btnFormatted = document.getElementById('modalBtnFormatted');
+  const btnPlain = document.getElementById('modalBtnPlain');
+  const formattedContainer = document.getElementById('modalFormattedContainer');
+  const plainContainer = document.getElementById('modalPlainContainer');
+  const iframe = document.getElementById('modalEmailIframe');
+  const attachmentsBox = document.getElementById('modalAttachmentsBox');
+  const attachmentCount = document.getElementById('modalAttachmentCount');
+  const attachmentsGrid = document.getElementById('modalAttachmentsGrid');
+  const fullPageBtn = document.getElementById('modalFullPageBtn');
+  const replyBtn = document.getElementById('modalReplyBtn');
+  const errorMessageEl = document.getElementById('modalErrorMessage');
+
+  let currentEmailId = null;
+
+  function openModal(emailId) {
+    currentEmailId = emailId;
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+
+    loadingState.style.display = 'flex';
+    errorState.style.display = 'none';
+    loadedState.style.display = 'none';
+    subjectEl.textContent = 'Loading email...';
+
+    fetchEmail(emailId);
+  }
+
+  function closeModal() {
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    if (iframe) iframe.srcdoc = '';
+  }
+
+  function fetchEmail(emailId) {
+    fetch('/api/emails/' + encodeURIComponent(emailId), {
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(res => {
+      if (!res.ok) {
+        throw new Error('Failed to load email (HTTP ' + res.status + ')');
+      }
+      return res.json();
+    })
+    .then(data => {
+      renderEmail(data);
+    })
+    .catch(err => {
+      loadingState.style.display = 'none';
+      errorState.style.display = 'flex';
+      errorMessageEl.textContent = err.message || 'Could not load email content.';
+    });
+  }
+
+  function renderEmail(data) {
+    loadingState.style.display = 'none';
+    errorState.style.display = 'none';
+    loadedState.style.display = 'flex';
+
+    subjectEl.textContent = data.subject || '(No subject)';
+    senderAvatarEl.textContent = (data.sender || '?').charAt(0).toUpperCase();
+    senderNameEl.textContent = data.sender || 'Unknown sender';
+    senderNameEl.title = data.sender || '';
+    recipientEl.textContent = data.recipient || 'You';
+    receivedTimeEl.textContent = data.received_at ? '📅 ' + data.received_at : '—';
+
+    // Action buttons links
+    fullPageBtn.href = data.view_url || ('/email/' + data.id);
+    replyBtn.href = data.reply_url || ('/email/' + data.id + '#reply-section');
+
+    // Badges
+    badgesEl.innerHTML = '';
+    if (data.is_spam) {
+      const b = document.createElement('span');
+      b.className = 'nx-badge priority-urgent';
+      b.textContent = 'SPAM · ' + data.spam_score + '%';
+      badgesEl.appendChild(b);
+    }
+    if (data.phishing_score >= 45) {
+      const b = document.createElement('span');
+      b.className = 'nx-badge priority-urgent';
+      b.textContent = 'PHISHING · ' + data.phishing_score + '%';
+      badgesEl.appendChild(b);
+    }
+    if (data.priority) {
+      const b = document.createElement('span');
+      b.className = 'nx-badge priority-' + data.priority.toLowerCase().replace(/\s+/g, '-');
+      b.textContent = data.priority;
+      badgesEl.appendChild(b);
+    }
+    if (data.confidentiality) {
+      const b = document.createElement('span');
+      b.className = 'nx-badge conf-' + data.confidentiality.toLowerCase().replace(/\s+/g, '-');
+      b.textContent = data.confidentiality;
+      badgesEl.appendChild(b);
+    }
+    if (data.category) {
+      const b = document.createElement('span');
+      b.className = 'nx-badge';
+      b.textContent = data.category;
+      badgesEl.appendChild(b);
+    }
+
+    // AI Summary
+    if (data.summary && data.summary.trim()) {
+      summaryBox.style.display = 'block';
+      summaryText.textContent = data.summary;
+    } else {
+      summaryBox.style.display = 'none';
+    }
+
+    // Email Body Content
+    const plainText = data.body_plain || '(This email has no text content.)';
+    plainContainer.textContent = plainText;
+
+    if (data.is_html && data.body_html) {
+      modeBar.style.display = 'flex';
+      formattedContainer.style.display = 'block';
+      plainContainer.style.display = 'none';
+      btnFormatted.classList.add('active');
+      btnPlain.classList.remove('active');
+
+      const themedDoc = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #1e293b;
+      background: #ffffff;
+      padding: 16px;
+      margin: 0;
+      word-break: break-word;
+    }
+    a { color: #0284c7; }
+    img { max-width: 100%; height: auto; }
+    pre, code { white-space: pre-wrap; font-family: monospace; font-size: 13px; }
+  </style>
+</head>
+<body>
+  ${data.body_html}
+</body>
+</html>`;
+      iframe.srcdoc = themedDoc;
+    } else {
+      modeBar.style.display = 'none';
+      formattedContainer.style.display = 'none';
+      plainContainer.style.display = 'block';
+    }
+
+    // Attachments
+    if (data.attachments && data.attachments.length > 0) {
+      attachmentsBox.style.display = 'block';
+      attachmentCount.textContent = data.attachments.length;
+      attachmentsGrid.innerHTML = '';
+      data.attachments.forEach(att => {
+        const card = document.createElement('div');
+        card.className = 'nx-attachment-card';
+        card.innerHTML = `
+          <div class="nx-attachment-head">
+            <strong>${escapeHtml(att.filename)}</strong>
+            <small class="nx-confidence">${escapeHtml(att.mime_type)} · ${att.size_kb} KB</small>
+          </div>
+          ${att.extracted_text ? `
+            <details class="nx-attachment-extracted">
+              <summary>View Extracted Text</summary>
+              <pre>${escapeHtml(att.extracted_text)}</pre>
+            </details>
+          ` : ''}
+        `;
+        attachmentsGrid.appendChild(card);
+      });
+    } else {
+      attachmentsBox.style.display = 'none';
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // Click handler for opening and closing modal
+  document.addEventListener('click', function(e) {
+    const trigger = e.target.closest('.js-open-email-modal');
+    if (trigger) {
+      e.preventDefault();
+      const emailId = trigger.getAttribute('data-email-id');
+      if (emailId) {
+        openModal(emailId);
+      }
+    }
+
+    if (e.target.closest('.js-close-modal')) {
+      e.preventDefault();
+      closeModal();
+    }
+
+    if (e.target.closest('.js-retry-modal')) {
+      e.preventDefault();
+      if (currentEmailId) {
+        loadingState.style.display = 'flex';
+        errorState.style.display = 'none';
+        fetchEmail(currentEmailId);
+      }
+    }
+  });
+
+  // Display mode toggles
+  if (btnFormatted && btnPlain) {
+    btnFormatted.addEventListener('click', function() {
+      btnFormatted.classList.add('active');
+      btnPlain.classList.remove('active');
+      formattedContainer.style.display = 'block';
+      plainContainer.style.display = 'none';
+    });
+
+    btnPlain.addEventListener('click', function() {
+      btnPlain.classList.add('active');
+      btnFormatted.classList.remove('active');
+      formattedContainer.style.display = 'none';
+      plainContainer.style.display = 'block';
+    });
+  }
+
+  // Keyboard navigation: Escape key closes modal
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modal.classList.contains('active')) {
+      closeModal();
+    }
+  });
+})();
+</script>
+{% endblock %}

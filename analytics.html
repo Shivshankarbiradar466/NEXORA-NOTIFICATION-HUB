@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block title %}NEXORA · Analytics{% endblock %}
+
+{% block content %}
+<section class="nx-welcome">
+  <div>
+    <span class="nx-eyebrow">EMAIL INTELLIGENCE · REPORTS</span>
+    <h1>Analytics & Model Insights</h1>
+    <p>Statistics and analytical model classification from emails stored in your workspace.</p>
+  </div>
+</section>
+
+<!-- Top Stat Grid -->
+<section class="nx-stat-grid nx-analytics-stat-grid">
+  <article class="nx-stat-card">
+    <div class="nx-stat-icon mail">✉</div>
+    <div>
+      <span>Stored Emails</span>
+      <strong>{{ total }}</strong>
+      <small>Total mailbox records</small>
+    </div>
+  </article>
+
+  <article class="nx-stat-card">
+    <div class="nx-stat-icon important">★</div>
+    <div>
+      <span>Important Mail</span>
+      <strong>{{ important_count }}</strong>
+      <small class="nx-stat-pct-badge amber">{{ '%.1f'|format(important_pct) }}% of total</small>
+    </div>
+  </article>
+
+  <article class="nx-stat-card">
+    <div class="nx-stat-icon mail" style="background:#e0f2fe;color:#0284c7;">💼</div>
+    <div>
+      <span>Work Mail</span>
+      <strong>{{ work_count }}</strong>
+      <small class="nx-stat-pct-badge blue">{{ '%.1f'|format(work_pct) }}% of total</small>
+    </div>
+  </article>
+
+  <article class="nx-stat-card">
+    <div class="nx-stat-icon alerts">⛨</div>
+    <div>
+      <span>Quarantined Spam</span>
+      <strong>{{ spam }}</strong>
+      <small class="nx-stat-pct-badge red">{{ '%.1f'|format(quarantined_pct) }}% quarantined</small>
+    </div>
+  </article>
+
+  <article class="nx-stat-card">
+    <div class="nx-stat-icon confidential">⚠</div>
+    <div>
+      <span>Suspicious Signals</span>
+      <strong>{{ suspicious }}</strong>
+      <small class="nx-stat-pct-badge purple">{{ '%.1f'|format(suspicious_pct) }}% flagged</small>
+    </div>
+  </article>
+</section>
+
+<!-- Analytical Model Pie Chart Section -->
+<section class="nx-card nx-pie-chart-section">
+  <div class="nx-card-head">
+    <div>
+      <div class="nx-card-title">
+        <span class="nx-card-icon">📊</span>
+        <div>
+          <h3>Analytical Model Email Distribution</h3>
+          <p>Visual breakdown of Important, Work, Spam, Quarantined, and Suspicious emails</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nx-pie-layout">
+    <!-- Left: SVG Pie / Doughnut Chart -->
+    <div class="nx-pie-chart-col">
+      <div class="nx-pie-canvas-wrap">
+        <svg id="emailPieChartSvg" viewBox="0 0 340 340" class="nx-pie-svg" aria-label="Analytical Model Pie Chart">
+          <!-- Slices injected dynamically via JS -->
+        </svg>
+
+        <!-- Center donut cutout info -->
+        <div class="nx-pie-center-label">
+          <span class="nx-pie-center-number" id="centerChartNumber">{{ total }}</span>
+          <span class="nx-pie-center-text" id="centerChartLabel">Total Emails</span>
+        </div>
+
+        <!-- Floating Tooltip on Slice Hover -->
+        <div class="nx-pie-tooltip" id="pieTooltip" style="display: none;">
+          <strong id="tooltipTitle">Category</strong>
+          <span id="tooltipVal">0 emails (0%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Detailed Category Legend & Percentage List -->
+    <div class="nx-pie-legend-col">
+      <div class="nx-pie-legend-list">
+        {% for item in pie_data %}
+        <div class="nx-pie-legend-item" data-index="{{ loop.index0 }}" tabindex="0" role="button">
+          <div class="nx-legend-header">
+            <div class="nx-legend-title-group">
+              <span class="nx-legend-dot" style="background: {{ item.color }};"></span>
+              <strong class="nx-legend-label">{{ item.label }}</strong>
+              <small class="nx-legend-desc">{{ item.description }}</small>
+            </div>
+            <div class="nx-legend-metric">
+              <span class="nx-legend-count">{{ item.count }} emails</span>
+              <span class="nx-legend-pct" style="color: {{ item.color }};">{{ '%.1f'|format(item.pct) }}%</span>
+            </div>
+          </div>
+          <div class="nx-legend-bar-track">
+            <div class="nx-legend-bar-fill" style="width: {{ [item.pct, 100]|min }}%; background: {{ item.color }};"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Category Distribution -->
+<section class="nx-card" style="padding:24px;margin-top:20px;">
+  <div class="nx-card-head">
+    <div>
+      <div class="nx-card-title">Stored ML Category Classification</div>
+      <small>Counts reflect stored model category assignments across your active mail records.</small>
+    </div>
+  </div>
+  {% if categories %}
+    {% for category, count in categories %}
+    <div style="display:grid;grid-template-columns:minmax(100px,180px) 1fr 60px;gap:12px;align-items:center;margin:14px 0;">
+      <span style="font-weight: 600;">{{ category or 'Uncategorized' }}</span>
+      <div style="height:9px;background:rgba(120,150,190,.18);border-radius:9px;overflow:hidden;">
+        <div style="height:100%;width:{{ [((count / total * 100) if total else 0), 100]|min }}%;background:linear-gradient(90deg,#0284c7,#38bdf8);border-radius:9px;"></div>
+      </div>
+      <strong style="text-align: right;">{{ count }}</strong>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p>No email data yet. Connect Gmail and run a scan to populate analytics.</p>
+  {% endif %}
+  <p class="nx-confidence" style="margin-top:20px;">Truth note: notification status is based on recorded provider/task status. Spam/phishing scores are estimates validated with model classifiers.</p>
+</section>
+
+<!-- Pie Chart Rendering Script -->
+<script>
+(function() {
+  const pieData = {{ pie_data|tojson }};
+  const totalEmails = {{ total }};
+  const svg = document.getElementById("emailPieChartSvg");
+  const tooltip = document.getElementById("pieTooltip");
+  const tooltipTitle = document.getElementById("tooltipTitle");
+  const tooltipVal = document.getElementById("tooltipVal");
+  const centerNumber = document.getElementById("centerChartNumber");
+  const centerLabel = document.getElementById("centerChartLabel");
+
+  if (!svg) return;
+
+  const cx = 170;
+  const cy = 170;
+  const rOut = 135;
+  const rIn = 78;
+
+  function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+    const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+    return {
+      x: centerX + (radius * Math.cos(angleInRadians)),
+      y: centerY + (radius * Math.sin(angleInRadians))
+    };
+  }
+
+  function describeDonutSlice(x, y, innerRadius, outerRadius, startAngle, endAngle) {
+    if (endAngle - startAngle >= 359.99) {
+      endAngle = startAngle + 359.99;
+    }
+    const startOuter = polarToCartesian(x, y, outerRadius, startAngle);
+    const endOuter = polarToCartesian(x, y, outerRadius, endAngle);
+    const startInner = polarToCartesian(x, y, innerRadius, endAngle);
+    const endInner = polarToCartesian(x, y, innerRadius, startAngle);
+
+    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+
+    return [
+      "M", startOuter.x, startOuter.y,
+      "A", outerRadius, outerRadius, 0, largeArcFlag, 1, endOuter.x, endOuter.y,
+      "L", startInner.x, startInner.y,
+      "A", innerRadius, innerRadius, 0, largeArcFlag, 0, endInner.x, endInner.y,
+      "Z"
+    ].join(" ");
+  }
+
+  // Calculate sum of slice counts
+  const sumCount = pieData.reduce((acc, cur) => acc + (cur.count || 0), 0);
+
+  if (sumCount === 0 || totalEmails === 0) {
+    const emptyRing = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    emptyRing.setAttribute("d", describeDonutSlice(cx, cy, rIn, rOut, 0, 359.99));
+    emptyRing.setAttribute("fill", "rgba(100, 140, 190, 0.2)");
+    emptyRing.setAttribute("stroke", "rgba(100, 140, 190, 0.4)");
+    emptyRing.setAttribute("stroke-width", "1");
+    svg.appendChild(emptyRing);
+    return;
+  }
+
+  let currentAngle = 0;
+  const sliceElements = [];
+
+  pieData.forEach((slice, idx) => {
+    if (slice.count <= 0) return;
+
+    const sliceAngle = (slice.count / sumCount) * 360;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + sliceAngle;
+    currentAngle = endAngle;
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", describeDonutSlice(cx, cy, rIn, rOut, startAngle, endAngle));
+    path.setAttribute("fill", slice.color);
+    path.setAttribute("class", "nx-pie-slice");
+    path.setAttribute("data-index", idx);
+    path.style.transition = "transform 0.2s ease, filter 0.2s ease, opacity 0.2s ease";
+    path.style.cursor = "pointer";
+
+    path.addEventListener("mouseenter", (e) => {
+      highlightSlice(idx);
+      showTooltip(e, slice);
+    });
+    path.addEventListener("mousemove", (e) => {
+      moveTooltip(e);
+    });
+    path.addEventListener("mouseleave", () => {
+      unhighlightAll();
+      hideTooltip();
+    });
+
+    svg.appendChild(path);
+    sliceElements[idx] = path;
+  });
+
+  // Legend items hover binding
+  document.querySelectorAll(".nx-pie-legend-item").forEach(item => {
+    const idx = parseInt(item.getAttribute("data-index"), 10);
+    const slice = pieData[idx];
+
+    item.addEventListener("mouseenter", (e) => {
+      highlightSlice(idx);
+      if (slice) {
+        centerNumber.textContent = slice.count;
+        centerLabel.textContent = slice.label;
+      }
+    });
+
+    item.addEventListener("mouseleave", () => {
+      unhighlightAll();
+      centerNumber.textContent = totalEmails;
+      centerLabel.textContent = "Total Emails";
+    });
+  });
+
+  function highlightSlice(idx) {
+    sliceElements.forEach((el, i) => {
+      if (!el) return;
+      if (i === idx) {
+        el.style.transform = "scale(1.04)";
+        el.style.transformOrigin = `${cx}px ${cy}px`;
+        el.style.filter = "drop-shadow(0 4px 10px rgba(0,0,0,0.35))";
+        el.style.opacity = "1";
+      } else {
+        el.style.transform = "scale(1)";
+        el.style.opacity = "0.55";
+      }
+    });
+
+    document.querySelectorAll(".nx-pie-legend-item").forEach((it, i) => {
+      if (i === idx) it.classList.add("is-active");
+      else it.classList.remove("is-active");
+    });
+  }
+
+  function unhighlightAll() {
+    sliceElements.forEach(el => {
+      if (!el) return;
+      el.style.transform = "scale(1)";
+      el.style.opacity = "1";
+      el.style.filter = "none";
+    });
+    document.querySelectorAll(".nx-pie-legend-item").forEach(it => {
+      it.classList.remove("is-active");
+    });
+  }
+
+  function showTooltip(e, slice) {
+    if (!tooltip) return;
+    tooltipTitle.textContent = slice.label;
+    tooltipVal.textContent = slice.count + " emails (" + slice.pct.toFixed(1) + "%)";
+    tooltip.style.display = "block";
+    moveTooltip(e);
+  }
+
+  function moveTooltip(e) {
+    if (!tooltip) return;
+    const rect = svg.getBoundingClientRect();
+    const x = e.clientX - rect.left + 15;
+    const y = e.clientY - rect.top - 15;
+    tooltip.style.left = x + "px";
+    tooltip.style.top = y + "px";
+  }
+
+  function hideTooltip() {
+    if (tooltip) tooltip.style.display = "none";
+  }
+})();
+</script>
+{% endblock %}

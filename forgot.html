@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}NEXORA · Password Recovery{% endblock %}
+{% block content %}
+<section class="auth-page compact-auth">
+    <div class="auth-card">
+        <div class="mini-logo">N</div>
+        <span class="kicker">ACCOUNT RECOVERY</span>
+        <h2>Reset your password.</h2>
+        <p class="muted">Enter your account email or username. We will immediately send both a <strong>6-digit OTP code</strong> and a <strong>direct 1-click reset link</strong> directly to your Gmail.</p>
+
+        <form method="POST" class="form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <label>Account email or username
+                <input type="text" name="email" value="{{ email or '' }}" autocomplete="username" required placeholder="you@example.com" autofocus>
+            </label>
+
+            <button class="button primary" type="submit">Send OTP & Reset Link to Gmail ↗</button>
+        </form>
+
+        <div style="background:#09121f; border:1px solid #1c2b3e; border-radius:10px; padding:12px 14px; margin-top:20px; font-size:12px; color:#8ba0be; line-height:1.5;">
+            <strong style="color:#d5e5fa; display:block; margin-bottom:4px;">✉️ Sent exclusively to your Gmail:</strong>
+            <span style="display:block; margin-bottom:2px;">• <strong>Option 1:</strong> 6-Digit OTP code to verify on screen</span>
+            <span style="display:block;">• <strong>Option 2:</strong> 1-Click direct link to reset immediately</span>
+        </div>
+
+        <div class="auth-links single" style="display:flex; flex-direction:column; gap:10px; align-items:center; margin-top:20px;">
+            <a href="{{ url_for('auth.reset_password_otp') }}" style="color:#83a9ff; font-size:12px; font-weight:600;">Already have a 6-digit code? Enter code here ↗</a>
+            <a href="{{ url_for('auth.login') }}">Back to sign in</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

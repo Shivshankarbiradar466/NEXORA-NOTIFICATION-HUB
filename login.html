@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}NEXORA · Secure Access{% endblock %}
+{% block content %}
+<section class="nx-auth">
+  <div class="nx-auth-showcase">
+    <div class="nx-auth-logo"><span class="nx-logo"><span class="nx-logo-cut"></span></span><div><strong>NEXORA</strong><small>Notification Hub</small></div></div>
+    <span class="nx-eyebrow">PRIVATE COMMUNICATION CONTROL</span>
+    <h1>Your inbox.<br><span>Intelligent.</span><br>Connected.</h1>
+    <p>Turn Gmail into a clean operational signal, then deliver the right context to WhatsApp.</p>
+    <div class="nx-auth-points"><span>01 · CLASSIFY</span><span>02 · SUMMARIZE</span><span>03 · ALERT</span></div>
+  </div>
+  
+  <div class="nx-auth-card">
+    <div class="nx-auth-card-top"><span class="nx-logo small"><span class="nx-logo-cut"></span></span><span>SECURE ACCESS</span></div>
+    <h2>Welcome back.</h2>
+    <p>Sign in to your NEXORA workspace.</p>
+
+    <!-- OPTION 1: GMAIL OTP VERIFICATION LOGIN (BROUGHT DOWN SIDE BY SIDE WITH GOOGLE) -->
+    <form method="POST" action="{{ url_for('auth.send_login_otp') }}" class="nx-form" id="otpLoginForm" style="{% if initial_mode == 'password' %}display:none;{% endif %}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Registered Gmail or Username
+        <input name="identity" autocomplete="username" required placeholder="you@gmail.com or username" autofocus>
+      </label>
+      
+      <div class="nx-otp-banner">
+        <div class="nx-otp-banner-icon">⏱️</div>
+        <div class="nx-otp-banner-text">
+          <strong>2-Minute OTP Verification</strong>
+          <span>A 6-digit one-time code will be dispatched to your Gmail. You'll have 2 minutes to enter it before expiration.</span>
+        </div>
+      </div>
+      
+      <!-- GMAIL OTP LOGIN BUTTON AND GOOGLE CIRCLE BUTTON SIDE BY SIDE -->
+      <div class="nx-action-group">
+        <button class="nx-primary-btn" type="submit">
+          <span style="font-size:14px;">✉</span> Gmail OTP Login <span>→</span>
+        </button>
+        <a class="nx-google-circle-btn" href="{{ url_for('oauth.google_login') }}" title="Sign in with Google" aria-label="Sign in with Google">
+          <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+          </svg>
+        </a>
+      </div>
+
+      <div class="nx-auth-links">
+        <a href="#" onclick="switchAuthMode('password'); return false;" style="color:#60a5fa; font-weight:600;">🔒 Sign in with Password</a>
+        <a href="{{ url_for('auth.register') }}">Create account</a>
+      </div>
+    </form>
+
+    <!-- OPTION 2: PASSWORD LOGIN FORM -->
+    <form method="POST" action="{{ url_for('auth.login_post') }}" class="nx-form" id="passwordLoginForm" style="{% if initial_mode != 'password' %}display:none;{% endif %}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Username or email<input name="identity" autocomplete="username" required placeholder="you@example.com"></label>
+      <label>Password<input type="password" name="password" autocomplete="current-password" required placeholder="••••••••"></label>
+      {% if session.get('login_captcha') %}
+      <label>Security check: What is {{ session.get('login_captcha') }}? <input type="number" name="captcha_answer" inputmode="numeric" required autocomplete="off"></label>
+      {% endif %}
+      <label class="nx-checkbox-row">
+        <input type="checkbox" name="require_otp" value="1" checked>
+        <span>Verify with 2-Minute Gmail OTP after password</span>
+      </label>
+      
+      <div class="nx-action-group">
+        <button class="nx-primary-btn" type="submit">Verify Credentials <span>↗</span></button>
+        <a class="nx-google-circle-btn" href="{{ url_for('oauth.google_login') }}" title="Sign in with Google" aria-label="Sign in with Google">
+          <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+          </svg>
+        </a>
+      </div>
+
+      <div class="nx-auth-links">
+        <a href="#" onclick="switchAuthMode('otp'); return false;" style="color:#60a5fa; font-weight:600;">✉️ Sign in with Gmail OTP</a>
+        <a href="{{ url_for('auth.forgot') }}">Forgot password?</a>
+      </div>
+    </form>
+
+    <div class="nx-auth-footer-links" style="margin-top:14px; text-align:center;">
+      <a href="{{ url_for('auth.forgot') }}" style="color:#7d96b8; font-size:11px; text-decoration:none;">Need help signing in?</a>
+    </div>
+
+    <small class="nx-auth-note">Google sign-in is protected by 2-minute Gmail OTP verification. After selecting your Google account, enter the 6-digit code sent to your Gmail.</small>
+
+    <div style="margin-top: 14px; text-align: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
+      <a href="{{ url_for('main.privacy_policy') }}" style="color: #64748b; font-size: 11px; text-decoration: none;">Privacy Policy & Google API Compliance</a>
+    </div>
+  </div>
+</section>
+
+<script>
+function switchAuthMode(mode) {
+  var otpForm = document.getElementById('otpLoginForm');
+  var passForm = document.getElementById('passwordLoginForm');
+  
+  if (mode === 'password') {
+    otpForm.style.display = 'none';
+    passForm.style.display = 'grid';
+  } else {
+    passForm.style.display = 'none';
+    otpForm.style.display = 'grid';
+  }
+}
+</script>
+{% endblock %}

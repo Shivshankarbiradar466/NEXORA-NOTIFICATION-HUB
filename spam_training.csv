@@ -1,0 +1,41 @@
+subject,body,label
+"Win a free prize today","Congratulations you have won a free prize click here to claim",spam
+"Claim your lottery reward","Your lottery reward is waiting verify details now",spam
+"Limited time offer","Buy now limited time offer discount click to claim",spam
+"Earn money fast","Work from home earn money fast no experience needed",spam
+"Urgent account verification","Verify your account immediately or it will be suspended",spam
+"Gift card reward","You are selected for a free gift card claim today",spam
+"Guaranteed investment returns","Guaranteed returns send money now and double your investment",spam
+"Free phone winner","You won a free phone provide details to receive it",spam
+"Exclusive promotion","Special promotion act now and save big",spam
+"Update payment details","Your account is locked update your payment information here",spam
+"Unclaimed inheritance","Send bank details to release your inheritance funds",spam
+"Crypto investment opportunity","Risk free crypto investment guaranteed profit",spam
+"Click to claim bonus","Click here to claim your bonus immediately",spam
+"Prize notification","Winner selected claim your cash prize today",spam
+"Account suspended warning","Confirm your credentials to avoid account suspension",spam
+"Congratulations winner","You have won a lottery prize reply with your details",spam
+"Free vacation offer","Claim your free vacation package today",spam
+"Payment required urgently","Urgent payment required use this link to avoid penalty",spam
+"Work from home opportunity","Earn thousands daily with guaranteed returns",spam
+"Unsubscribe now offer","Limited time offer buy now for free gifts",spam
+"Team meeting tomorrow","Please find the agenda for our team meeting tomorrow morning",ham
+"Project status update","The project status report is attached for our weekly review",ham
+"College timetable","The updated college timetable is available on the student portal",ham
+"Assignment submission","Please submit your assignment by Friday through the official LMS",ham
+"Invoice from supplier","Attached is the invoice for the equipment purchased last week",ham
+"Interview schedule","Your interview is scheduled for Tuesday at ten in the morning",ham
+"Meeting minutes","Here are the minutes from yesterday's department meeting",ham
+"Password reset requested","You requested a password reset. If this was not you contact IT support",ham
+"Monthly report","Please review the monthly report before our discussion",ham
+"Family photos","Sharing the photos from our family event last weekend",ham
+"Library due date","Your borrowed library book is due next Monday",ham
+"Course registration","Course registration opens on the official university portal",ham
+"Travel itinerary","Your flight itinerary and booking confirmation are attached",ham
+"Feedback request","Could you provide feedback on the latest prototype",ham
+"Receipt for purchase","Thank you for your purchase. Your receipt is attached",ham
+"Doctor appointment","This is a reminder of your appointment tomorrow at 3 PM",ham
+"Project code review","Please review the pull request when you have time",ham
+"Class notes","I have shared today's class notes with the group",ham
+"Lunch plan","Are we still meeting for lunch this afternoon",ham
+"Security team notice","The IT team will perform scheduled maintenance tonight",ham

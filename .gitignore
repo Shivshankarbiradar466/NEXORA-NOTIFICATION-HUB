@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+instance/
+.pytest_cache/
+
+# Runtime secrets, user uploads, and worker state
+app/static/uploads/profile_images/*
+!app/static/uploads/profile_images/.gitkeep
+celerybeat-schedule*
+*.log
+whatsapp_gateway/node_modules/
+whatsapp_gateway/.wwebjs_auth/
+whatsapp_gateway/.wwebjs_cache/
+
+celerybeat.pid

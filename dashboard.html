@@ -1,0 +1,658 @@
+
+{% extends "base.html" %}
+{% block title %}NEXORA · Dashboard{% endblock %}
+
+{% block content %}
+<section class="nx-welcome">
+  <div class="nx-welcome-info">
+    <span class="nx-eyebrow">COMMAND CENTER · WORKSPACE ACTIVE</span>
+    <h1><span class="nx-dynamic-greeting">{{ greeting or 'Good Morning' }}</span>, {{ user.username|title }}! <span class="nx-wave-hand">👋</span></h1>
+    <p class="nx-welcome-sub">Here’s what’s happening with your emails, intelligence, and notifications.</p>
+  </div>
+
+  <!-- Live Workspace Telemetry (Adapts in Glass theme) -->
+  <div class="nx-telemetry-pill-badge" id="nxTelemetryBadge">
+    <div class="nx-telemetry-date" id="nxCurrentDate">Today</div>
+    <div class="nx-telemetry-metrics">
+      <span class="nx-telem-item">⚡ System <strong>Online</strong></span>
+      <span class="nx-telem-item">🛡️ Shield <strong>Active</strong></span>
+      <span class="nx-telem-item">🤖 Classifier <strong>Live</strong></span>
+    </div>
+  </div>
+
+  <div class="nx-dash-top-banners" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <!-- Gmail Monitoring Banner -->
+    <div class="nx-monitor-banner {% if user.monitoring_enabled %}is-on{% endif %}" id="monitoring">
+      <span class="nx-status-dot"></span>
+      <div>
+        <strong>Gmail Monitoring {{ 'Active' if user.monitoring_enabled else 'Paused' }}</strong>
+        <small>{{ 'Auto-scanning unread & incoming emails continuously' if user.monitoring_enabled else 'Automatic background sync paused' }}</small>
+      </div>
+      <form method="POST" action="{{ url_for('main.monitor_toggle') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="{{ 'stop' if user.monitoring_enabled else 'start' }}">
+        <button class="nx-switch" aria-label="Toggle monitoring" title="Toggle Gmail Monitoring">
+          <span></span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Auto AI Reply Banner & Switch -->
+    <div class="nx-monitor-banner nx-auto-reply-banner {% if user.auto_reply_enabled %}is-on{% endif %}" id="auto-reply">
+      <span class="nx-status-dot auto-reply-dot"></span>
+      <div>
+        <strong>Auto AI Reply {{ 'ON' if user.auto_reply_enabled else 'OFF' }}</strong>
+        <small>{{ 'Replies sent after 6h if unreplied' if user.auto_reply_enabled else 'Auto-replies disabled' }}</small>
+      </div>
+      <form method="POST" action="{{ url_for('main.toggle_auto_reply') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="nx-switch auto-reply-switch" type="submit" aria-label="Toggle Auto AI Reply" title="Toggle Auto AI Reply System (6-hour buffer)">
+          <span></span>
+        </button>
+      </form>
+    </div>
+
+    <!-- 2-Step Verification Banner & Switch -->
+    <div class="nx-monitor-banner nx-mfa-banner {% if user.mfa_enabled %}is-on{% endif %}" id="mfa-banner">
+      <span class="nx-status-dot mfa-dot"></span>
+      <div>
+        <strong>2-Step Verification {{ 'ON' if user.mfa_enabled else 'OFF' }}</strong>
+        <small>{{ 'Google 2-Step protection active' if user.mfa_enabled else '2-Step Verification paused' }}</small>
+      </div>
+      <div style="display:inline-flex;align-items:center;gap:8px;">
+        <form method="POST" action="{{ url_for('main.toggle_mfa') }}" style="display:inline-flex;align-items:center;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="{{ 'stop' if user.mfa_enabled else 'start' }}">
+          <button class="nx-switch mfa-switch" type="submit" aria-label="Toggle 2-Step Verification" title="Toggle 2-Step Verification from dashboard">
+            <span></span>
+          </button>
+        </form>
+        <a href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank" rel="noopener noreferrer" class="nx-banner-external-link" title="Open Google Account 2-Step Verification Settings directly">
+          Google 2-Step ↗
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="nx-stat-grid">
+  <article class="nx-stat-card">
+    <div class="nx-stat-icon mail">✉</div>
+    <div>
+      <span>Total Emails</span>
+      <strong id="nxStatTotalEmails">{{ stats.emails }}</strong>
+      <small>Stored in your workspace</small>
+    </div>
+    <b class="nx-trend">LIVE</b>
+  </article>
+
+  <a class="nx-stat-card nx-important-card {% if view == 'important' %}is-selected{% endif %}"
+     href="{{ url_for('main.dashboard', view='important') }}#recent-emails"
+     aria-label="View all important and urgent emails">
+    <div class="nx-stat-icon important">☆</div>
+    <div>
+      <span>Important</span>
+      <strong id="nxStatImportantEmails">{{ stats.urgent }}</strong>
+      <small>{% if view == 'important' %}Showing important messages{% else %}Important and urgent messages{% endif %}</small>
+    </div>
+    <b class="nx-trend">VIEW →</b>
+  </a>
+
+  <article class="nx-stat-card">
+    <div class="nx-stat-icon confidential">⬟</div>
+    <div>
+      <span>Confidential</span>
+      <strong>{{ stats.confidential }}</strong>
+      <small>Protected message signals</small>
+    </div>
+    <b class="nx-trend">SECURE</b>
+  </article>
+
+  <article class="nx-stat-card">
+    <div class="nx-stat-icon alerts">◔</div>
+    <div>
+      <span>WhatsApp Alerts</span>
+      <strong>{{ stats.alerts }}</strong>
+      <small>Delivery attempts logged</small>
+    </div>
+    <b class="nx-trend">READY</b>
+  </article>
+</section>
+
+<section class="nx-dashboard-grid">
+  <section class="nx-card nx-email-card" id="recent-emails">
+    <div class="nx-card-head">
+      <div>
+        <div class="nx-card-title">
+          <span class="gmail-mark">M</span>
+          <span>{{ {'important':'Important Emails','spam':'Spam & Quarantine','suspicious':'Suspicious / Phishing','all':'All Mail','inbox':'Inbox','sent':'Sent Mail','drafts':'Drafts','promotions':'Promotions','social':'Social','updates':'Updates'}.get(view, 'Recent Emails') }}</span>
+        </div>
+        <small>{% if view == 'important' %}All important and urgent messages{% elif view == 'spam' %}Review quarantined messages and restore false positives{% elif view == 'suspicious' %}Messages with suspicious-link or phishing indicators{% elif view == 'inbox' %}Incoming messages excluding Sent and Drafts{% elif view == 'all' %}All stored messages excluding items shown separately in Trash{% elif view == 'sent' %}Messages in your Gmail Sent label{% elif view == 'drafts' %}Messages in your Gmail Drafts label{% elif view == 'promotions' %}Messages labeled as Gmail Promotions{% else %}Latest messages across your mailbox{% endif %}</small>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="nx-live-pill" id="nxLiveScanIndicator" style="display:{% if user.monitoring_enabled %}inline-flex{% else %}none{% endif %};font-size:11px;color:#34d399;align-items:center;gap:6px;background:rgba(52,211,153,0.1);padding:4px 10px;border-radius:20px;border:1px solid rgba(52,211,153,0.25);">
+          <span class="nx-pulsing-circle"></span> Live Auto-Monitoring
+        </span>
+        {% if view != 'recent' %}
+        <a class="nx-link-btn" href="{{ url_for('main.dashboard', view='recent') }}#recent-emails">← Recent emails</a>
+        {% endif %}
+        <form method="POST" action="{{ url_for('main.monitor') }}" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="nx-link-btn" type="submit" title="Scan Gmail messages now">
+            Scan Gmail now <span>→</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="nx-email-list" id="nxEmailListContainer" data-latest-id="{{ emails[0].id if emails else 0 }}" data-monitoring-enabled="{{ '1' if user.monitoring_enabled else '0' }}">
+      {% for e in emails %}
+      <article
+        id="email-{{ e.id }}"
+        class="nx-email-row {% if not e.is_read %}is-unread{% endif %}"
+        data-email-id="{{ e.id }}"
+        data-search="{{ (e.sender or '')|lower }} {{ (e.subject or '')|lower }} {{ (e.category or '')|lower }} {{ (e.summary or '')|lower }} {{ (e.body or '')|lower }}"
+      >
+        <div class="nx-sender-avatar">{{ (e.sender or '?')[:1]|upper }}</div>
+
+        <div class="nx-email-main">
+          <div class="nx-email-top">
+            <div>
+              <strong>{{ e.sender or 'Unknown sender' }}</strong>
+              {% if not e.is_read %}
+              <span class="nx-badge nx-unread-badge" style="background:rgba(59,130,246,0.18);color:#60a5fa;border:1px solid rgba(96,165,250,0.35);font-size:10px;padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle;font-weight:700;">UNREAD</span>
+              {% endif %}
+              <h3>
+                <a class="nx-email-title-link" href="{{ url_for('main.view_email', email_id=e.id) }}">
+                  {{ e.subject or '(No subject)' }}
+                </a>
+              </h3>
+              <p>{{ e.summary or 'No summary available.' }}</p>
+            </div>
+
+            <time>
+              {{ e.received_at.strftime('%I:%M %p') if e.received_at else '—' }}
+            </time>
+          </div>
+
+          <div class="nx-email-meta">
+            {% if e.is_spam %}<span class="nx-badge priority-urgent">SPAM · {{ '%.0f'|format((e.spam_score or 0) * 100) }}%</span>{% endif %}
+            {% if (e.phishing_score or 0) >= 0.45 %}<span class="nx-badge priority-urgent">SUSPICIOUS · {{ '%.0f'|format((e.phishing_score or 0) * 100) }}%</span>{% endif %}
+            <span class="nx-badge priority-{{ (e.priority or 'Normal')|lower|replace(' ','-') }}">
+              {{ e.priority or 'Normal' }}
+            </span>
+            <span class="nx-badge conf-{{ (e.confidentiality or 'General')|lower|replace(' ','-') }}">
+              {{ e.confidentiality or 'General' }}
+            </span>
+            <span class="nx-confidence">
+              Confidence: {{ '%.0f'|format((e.confidence or 0) * 100) }}%
+            </span>
+          </div>
+
+          {% if e.spam_reason and e.is_spam %}<small class="nx-confidence">Spam reason: {{ e.spam_reason }}</small>{% endif %}
+          {% if e.phishing_reason and (e.phishing_score or 0) >= 0.45 %}<small class="nx-confidence">Phishing warning: {{ e.phishing_reason }}</small>{% endif %}
+          {% if e.has_attachments %}<span class="nx-badge">Attachment detected</span>{% endif %}
+
+          <div class="nx-email-view-cta">
+            <a href="{{ url_for('main.view_email', email_id=e.id) }}" class="nx-open-email-btn">
+              Open & Read Email <span>→</span>
+            </a>
+            <a href="{{ url_for('main.view_email', email_id=e.id) }}#reply-section" class="nx-reply-email-btn">
+              ↩ Reply
+            </a>
+          </div>
+        </div>
+
+        <div class="nx-email-actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+          {% if e.is_spam %}
+          <form method="POST" action="{{ url_for('main.mark_not_spam', email_id=e.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="nx-link-btn" type="submit">Not Spam / Restore</button></form>
+          {% else %}
+          <form method="POST" action="{{ url_for('main.mark_spam', email_id=e.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="nx-link-btn" type="submit">Mark Spam</button></form>
+          <form method="POST" action="{{ url_for('main.block_sender', email_id=e.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="match_type" value="email"><button class="nx-link-btn" type="submit">Block Sender</button></form>
+          <form method="POST" action="{{ url_for('main.block_sender', email_id=e.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="match_type" value="domain"><button class="nx-link-btn" type="submit">Block Domain</button></form>
+          <form method="POST" action="{{ url_for('main.trust_sender', email_id=e.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="nx-link-btn" type="submit">Trust Sender</button></form>
+          {% endif %}
+        </div>
+
+        <form method="POST"
+              action="{{ url_for('main.move_email_to_trash', email_id=e.id) }}"
+              class="nx-trash-action"
+              onsubmit="return confirm('Move this email to Trash?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="nx-delete-btn" title="Move email to Trash" aria-label="Move email to Trash">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 6h18M9 6V4h6v2m-9 0 1 14h10l1-14M10 10v6m4-6v6"/></svg>
+          </button>
+        </form>
+      </article>
+      {% else %}
+      <div class="nx-empty">
+        <div>✦</div>
+        {% if search_query %}
+          <h3>No matching emails</h3>
+          <p>We couldn't find any messages matching "{{ search_query }}".</p>
+          <div style="margin-top:14px;">
+            <a href="{{ url_for('main.dashboard', view=view) }}#recent-emails" class="nx-outline-btn" style="display:inline-flex;width:auto;padding:8px 16px;">Clear Search</a>
+          </div>
+        {% elif not user.google_sub %}
+          <h3>No email signals yet</h3>
+          <p>
+            Connect Google and run a Gmail scan. Once messages arrive,
+            NEXORA will classify and summarize them here.
+          </p>
+          <a href="{{ url_for('oauth.google_login') }}" class="nx-primary-btn">
+            Connect Google →
+          </a>
+        {% else %}
+          <h3>No {{ {'drafts':'drafts','sent':'sent messages','spam':'spam or quarantined messages','suspicious':'suspicious messages','promotions':'promotions','social':'social messages','updates':'updates','important':'important messages','inbox':'messages in your inbox'}.get(view, 'messages') }} found</h3>
+          <p>
+            {% if view == 'drafts' %}
+              You do not have any drafts in your mailbox right now.
+            {% elif view == 'spam' %}
+              Your inbox is clean! No messages have been quarantined as spam.
+            {% elif view == 'suspicious' %}
+              No phishing or suspicious email signals detected.
+            {% elif view == 'sent' %}
+              No sent messages found for this mailbox filter.
+            {% else %}
+              There are no messages in this view right now.
+            {% endif %}
+          </p>
+          <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap;">
+            {% if view != 'inbox' and view != 'all' and view != 'recent' %}
+            <a href="{{ url_for('main.dashboard', view='all') }}#recent-emails" class="nx-outline-btn" style="display:inline-flex;width:auto;padding:8px 16px;">View All Mail</a>
+            {% endif %}
+            <form method="POST" action="{{ url_for('main.monitor') }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="nx-primary-btn" type="submit">Scan Gmail Now →</button>
+            </form>
+          </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% if pagination and pagination.pages > 1 %}
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 18px;border-top:1px solid rgba(120,150,190,.18);">
+      <small class="nx-confidence">Showing {{ (pagination.page - 1) * pagination.per_page + 1 }}–{{ (pagination.page - 1) * pagination.per_page + emails|length }} of {{ pagination.total }} emails</small>
+      <div style="display:flex;gap:8px;align-items:center;">
+        {% if pagination.has_prev %}<a class="nx-link-btn" href="{{ url_for('main.dashboard', view=view, q=search_query, page=pagination.prev_num) }}#recent-emails">← Previous</a>{% endif %}
+        <span class="nx-confidence">Page {{ pagination.page }} / {{ pagination.pages }}</span>
+        {% if pagination.has_next %}<a class="nx-link-btn" href="{{ url_for('main.dashboard', view=view, q=search_query, page=pagination.next_num) }}#recent-emails">Next →</a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% if blocked_senders %}
+    <div style="padding:14px 18px;border-top:1px solid rgba(120,150,190,.18)">
+      <strong>Blocked senders & domains</strong>
+      {% for blocked in blocked_senders %}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px">
+        <small>{{ blocked.sender_key }} <span class="nx-confidence">({{ blocked.match_type }})</span></small>
+        <form method="POST" action="{{ url_for('main.unblock_sender', sender_id=blocked.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="nx-link-btn" type="submit">Unblock</button></form>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+
+  <aside class="nx-right-rail">
+    <section class="nx-card nx-whatsapp-card" id="whatsapp">
+      <div class="nx-card-head compact">
+        <div class="nx-card-title">
+          <span class="wa-mark">◔</span>
+          <span>WhatsApp & Twilio Sandbox</span>
+        </div>
+        <span class="nx-connected" style="margin-left:auto; font-size:9px; background: {% if user.whatsapp_number %}#075943; color:#72f0c6{% else %}#593707; color:#f0c272{% endif %};">
+          {{ user.whatsapp_number or 'Not Configured' }}
+        </span>
+      </div>
+
+      <!-- Twilio Sandbox QR Code Drawer -->
+      <details class="nx-dash-qr-details" {% if not user.whatsapp_number %}open{% endif %}>
+        <summary class="nx-dash-qr-summary">
+          <span>📱 Scan Twilio Sandbox QR Code</span>
+          <small>Click to view / hide QR</small>
+        </summary>
+        <div class="nx-dash-qr-body">
+          <div class="nx-dash-qr-img-wrap">
+            <img
+              src="{{ url_for('static', filename='img/twilio_sandbox_qr.png') }}"
+              alt="Twilio WhatsApp Sandbox QR Code"
+              class="nx-dash-qr-img"
+              width="160"
+              height="160"
+            >
+          </div>
+          <div class="nx-dash-qr-text">
+            <strong>Scan on mobile to activate</strong>
+            <p>1. Scan QR with WhatsApp or camera.</p>
+            <p>2. Send: <code class="nx-code-pill">join refused-sea</code></p>
+            <p>3. Sandbox: <b>+1 415 523 8886</b></p>
+            <a href="https://wa.me/14155238886?text=join%20refused-sea" target="_blank" rel="noopener noreferrer" class="nx-wa-direct-link">
+              Open in WhatsApp ↗
+            </a>
+          </div>
+        </div>
+      </details>
+
+      <!-- WhatsApp Number Configuration & Send Test Alert -->
+      <div class="nx-dash-wa-controls">
+        <form method="POST" action="{{ url_for('main.whatsapp_settings') }}" class="nx-wa-update-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label style="font-size:10px; color:#95b4d7; display:block; margin-bottom:5px; font-weight:700;">WhatsApp Destination Number</label>
+          <div style="display:flex; gap:8px;">
+            <input
+              type="tel"
+              name="whatsapp_number"
+              value="{{ user.whatsapp_number or '' }}"
+              placeholder="+919019665808"
+              required
+              style="flex:1; background:#07172e; border:1px solid #1c4775; border-radius:8px; color:#fff; padding:8px 10px; font-size:11px; outline:none;"
+            >
+            <button type="submit" class="nx-outline-btn" style="width:auto; padding:8px 12px; white-space:nowrap;">
+              Save Number
+            </button>
+          </div>
+        </form>
+
+        {% if user.whatsapp_number %}
+        <form method="POST" action="{{ url_for('main.whatsapp_test') }}" style="margin-top:10px;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="nx-primary-btn" style="width:100%; justify-content:center; padding:9px 12px; font-size:11px;">
+            ⚡ Send Test WhatsApp Alert (Try it now)
+          </button>
+        </form>
+        {% endif %}
+      </div>
+
+      <div style="padding: 10px 14px 6px; font-size:10px; color:#6f8daf; font-weight:700; border-top: 1px solid #14355a; margin-top:10px;">
+        LATEST NOTIFICATION PREVIEW
+      </div>
+
+      {% if notifications %}
+        {% set n = notifications[0] %}
+        <div class="nx-wa-preview">
+          <div class="nx-wa-top">
+            <span class="wa-mark">◔</span>
+            <strong>NEXORA · NEW EMAIL</strong>
+            <small>{{ n.created_at.strftime('%I:%M %p') if n.created_at else 'now' }}</small>
+          </div>
+          <div class="nx-wa-body">
+            <p>{{ n.message }}</p>
+          </div>
+          <div class="nx-wa-status">✓✓ {{ n.status or 'delivered' }}</div>
+        </div>
+      {% else %}
+        <div class="nx-wa-empty">
+          Your newest WhatsApp alert will appear here after the first notification.
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="nx-card nx-connection-card">
+      <div class="nx-card-title">
+        <span class="gmail-mark">M</span>
+        <span>Gmail Connection</span>
+        <span class="nx-connected">
+          {{ 'Connected' if user.google_sub else 'Not connected' }}
+        </span>
+      </div>
+
+      <strong class="nx-connection-email">{{ user.email }}</strong>
+      <small>OAuth account · encrypted token storage</small>
+
+      {% if user.google_sub %}
+        <form method="POST" action="{{ url_for('oauth.google_disconnect') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="nx-outline-btn" type="submit">Manage Gmail →</button>
+        </form>
+      {% else %}
+        <a class="nx-outline-btn" href="{{ url_for('oauth.google_login') }}">
+          Connect Gmail →
+        </a>
+      {% endif %}
+    </section>
+
+    <section class="nx-card nx-monitor-card">
+      <div class="nx-monitor-head">
+        <div class="nx-monitor-icon">◌</div>
+        <div>
+          <strong>Gmail Monitoring</strong>
+          <small>
+            Automatic email monitoring is
+            {{ 'active' if user.monitoring_enabled else 'paused' }}.
+          </small>
+        </div>
+        <span class="nx-on-badge">
+          {{ 'ON' if user.monitoring_enabled else 'OFF' }}
+        </span>
+      </div>
+
+      <form method="POST" action="{{ url_for('main.monitor_toggle') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="{{ 'stop' if user.monitoring_enabled else 'start' }}">
+        <button class="nx-outline-btn" type="submit">
+          {{ 'Turn Off' if user.monitoring_enabled else 'Turn On' }}
+        </button>
+      </form>
+    </section>
+
+    <!-- Auto AI Reply Right Rail Card -->
+    <section class="nx-card nx-monitor-card nx-auto-reply-card">
+      <div class="nx-monitor-head">
+        <div class="nx-monitor-icon" style="{% if user.auto_reply_enabled %}background:#4a154b;color:#e879f9;{% endif %}">🤖</div>
+        <div>
+          <strong>Auto AI Reply System</strong>
+          <small>
+            {{ 'Auto-replies active: 6-hour delay if no reply.' if user.auto_reply_enabled else 'Auto-replies paused: manual mode only.' }}
+          </small>
+        </div>
+        <span class="nx-on-badge" style="{% if not user.auto_reply_enabled %}background:#334155;color:#94a3b8;{% else %}background:#7e22ce;color:#f3e8ff;{% endif %}">
+          {{ 'ON' if user.auto_reply_enabled else 'OFF' }}
+        </span>
+      </div>
+
+      <form method="POST" action="{{ url_for('main.toggle_auto_reply') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="nx-outline-btn" type="submit" style="{% if user.auto_reply_enabled %}border-color:#a855f7;color:#c084fc;{% endif %}">
+          {{ 'Turn Off Auto Reply' if user.auto_reply_enabled else 'Turn On Auto Reply (6h Buffer)' }}
+        </button>
+      </form>
+    </section>
+
+    <!-- 2-Step Verification Right Rail Card -->
+    <section class="nx-card nx-monitor-card nx-mfa-card">
+      <div class="nx-monitor-head">
+        <div class="nx-monitor-icon" style="{% if user.mfa_enabled %}background:#1e3a8a;color:#60a5fa;{% else %}background:#1e293b;color:#94a3b8;{% endif %}">🛡️</div>
+        <div>
+          <strong>2-Step Verification</strong>
+          <small>
+            {{ '2-Step Verification is active on your account.' if user.mfa_enabled else 'Turn on 2-Step Verification for maximum security.' }}
+          </small>
+        </div>
+        <span class="nx-on-badge" style="{% if user.mfa_enabled %}background:#1d4ed8;color:#eff6ff;{% else %}background:#334155;color:#94a3b8;{% endif %}">
+          {{ 'ON' if user.mfa_enabled else 'OFF' }}
+        </span>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+        <form method="POST" action="{{ url_for('main.toggle_mfa') }}" style="display:inline;flex:1;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="{{ 'stop' if user.mfa_enabled else 'start' }}">
+          <button class="nx-outline-btn" type="submit" style="width:100%;">
+            {{ 'Turn Off 2-Step' if user.mfa_enabled else 'Turn On 2-Step' }}
+          </button>
+        </form>
+        <a href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank" rel="noopener noreferrer" class="nx-primary-btn" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 12px;font-size:12px;flex:1;white-space:nowrap;">
+          Google 2-Step Settings ↗
+        </a>
+      </div>
+    </section>
+
+    <section class="nx-card nx-profile-card">
+      <div class="nx-card-title">
+        <span class="nx-profile-icon">○</span>
+        <div>
+          <strong>Your Profile</strong>
+          <small>Manage your account and preferences.</small>
+        </div>
+      </div>
+
+      <a href="{{ url_for('main.profile') }}" class="nx-profile-link">
+        <div class="nx-big-avatar nx-dashboard-profile-avatar">
+          {% if user.profile_image %}
+            <img
+              src="{{ url_for('static', filename='uploads/profile_images/' ~ user.profile_image) }}"
+              alt="Profile photo for {{ user.username }}"
+              class="nx-dashboard-profile-avatar-img"
+            >
+          {% else %}
+            {{ user.username[:1]|upper }}
+          {% endif %}
+        </div>
+        <div>
+          <strong>{{ user.username|title }}</strong>
+          <small>Active Member</small>
+        </div>
+        <span>›</span>
+      </a>
+    </section>
+  </aside>
+</section>
+
+<section class="nx-card nx-notification-table">
+  <div class="nx-card-head">
+    <div>
+      <div class="nx-card-title">
+        <span>♧</span>
+        <span>Recent Notifications</span>
+      </div>
+      <small>WhatsApp delivery activity</small>
+    </div>
+    <span class="nx-live-label">Latest {{ notifications|length }}</span>
+  </div>
+
+  {% if notifications %}
+  <div class="nx-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>TIME</th>
+          <th>TYPE</th>
+          <th>FROM</th>
+          <th>MESSAGE</th>
+          <th>STATUS</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for n in notifications[:8] %}
+        <tr>
+          <td>{{ n.created_at.strftime('%I:%M %p') if n.created_at else '—' }}</td>
+          <td><span class="nx-channel">◔ {{ n.channel }}</span></td>
+          <td>{{ n.destination or '—' }}</td>
+          <td>
+            {{ n.message[:85] }}{% if n.message|length > 85 %}…{% endif %}
+          </td>
+          <td><span class="nx-status-chip">{{ n.status or 'queued' }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="nx-table-empty">No notification activity has been logged yet.</div>
+  {% endif %}
+</section>
+<style>
+.nx-important-card { color: inherit; text-decoration: none; cursor: pointer; position: relative; transition: transform .18s ease, border-color .18s ease, background .18s ease; }
+.nx-important-card:hover, .nx-important-card:focus-visible { transform: translateY(-2px); border-color: rgba(75, 160, 255, .55); outline: none; }
+.nx-important-card .nx-trend { white-space: nowrap; }
+.nx-important-card.is-selected { border-color: rgba(75, 160, 255, .7); box-shadow: 0 0 0 1px rgba(75, 160, 255, .15) inset; }
+
+.nx-dashboard-profile-avatar { overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.nx-dashboard-profile-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%; }
+/* Reserve a dedicated top-right control lane so the timestamp never collides with the trash icon. */
+.nx-email-row { position: relative; padding-right: 58px; }
+.nx-email-main { min-width: 0; }
+.nx-email-top { padding-right: 0; gap: 12px; }
+.nx-email-top > div { min-width: 0; flex: 1 1 auto; }
+.nx-email-top time { flex: 0 0 auto; margin-right: 48px; white-space: nowrap; }
+.nx-trash-action { position: absolute; top: 10px; right: 10px; z-index: 3; margin: 0; line-height: 0; }
+.nx-delete-btn { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid rgba(111, 147, 190, .35); color: #8fb4df; background: rgba(7, 27, 49, .72); cursor: pointer; transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease; }
+.nx-delete-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.nx-delete-btn:hover, .nx-delete-btn:focus-visible { background: rgba(190, 49, 75, .18); border-color: rgba(255, 105, 130, .7); color: #ff9aa9; outline: none; }
+.nx-delete-btn:active { transform: scale(.96); }
+@media (max-width: 650px) {
+  .nx-email-row { padding-right: 48px; }
+  .nx-email-top { display: block; }
+  .nx-email-top time { display: block; margin: 6px 0 0; padding-right: 0; }
+  .nx-trash-action { top: 10px; right: 8px; }
+  .nx-delete-btn { width: 28px; height: 28px; }
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const search = document.getElementById("globalSearch");
+
+  function filterEmails() {
+    const q = (search?.value || "").trim().toLowerCase();
+
+    document.querySelectorAll(".nx-email-row").forEach(function (row) {
+      row.style.display =
+        !q || (row.dataset.search || "").includes(q) ? "" : "none";
+    });
+  }
+
+  search?.addEventListener("input", filterEmails);
+
+  document.addEventListener("keydown", function (event) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      search?.focus();
+    }
+  });
+
+  document.getElementById("nxMobileMenu")?.addEventListener("click", function () {
+    document.getElementById("nxSidebar")?.classList.toggle("open");
+  });
+
+  /*
+   * Normal form submission is retained so your existing Flask reply route
+   * continues to handle sending. Clear the box when the page returns after
+   * the form has been submitted.
+   *
+   * This does not claim that the email was sent; the Flask route remains
+   * responsible for sending the reply and reporting errors.
+   */
+  document.querySelectorAll("[data-reply-form]").forEach(function (form) {
+    form.addEventListener("submit", function () {
+      const box = form.querySelector("[data-reply-box]");
+      const button = form.querySelector('button[type="submit"]');
+      const status = form.querySelector(".nx-reply-status");
+
+      if (!box || !box.value.trim()) {
+        return;
+      }
+
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Sending...";
+      }
+
+      if (status) {
+        status.textContent = "Sending your reply...";
+      }
+
+      /*
+       * Do not clear the text before sending: if the request fails,
+       * the browser should retain the typed text.
+       * The textarea starts empty on the next dashboard render.
+       */
+    });
+  });
+})();
+</script>
+{% endblock %}

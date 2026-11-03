@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#061329">
+<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+<title>{% block title %}NEXORA · Notification Hub{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<script>
+  (function() {
+    try {
+      var t = localStorage.getItem('nexora_theme');
+      if (t === 'glass' || t === 'solar-glass') {
+        document.documentElement.classList.add('theme-glass');
+      }
+    } catch(e) {}
+  })();
+</script>
+<style>
+.nx-avatar { overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.nx-avatar-img { width: 100%; height: 100%; display: block; object-fit: cover; border-radius: 50%; }
+</style>
+{% block head %}{% endblock %}
+</head>
+<body class="{% if session.get('user_id') %}app-body{% else %}public-body{% endif %}">
+{% if session.get('user_id') %}
+<div class="nx-app">
+  <aside class="nx-sidebar" id="nxSidebar">
+    <a class="nx-brand" href="{{ url_for('main.dashboard') }}">
+      <span class="nx-logo" aria-hidden="true">
+        <span class="nx-logo-cut"></span>
+      </span>
+      <span class="nx-brand-copy"><strong>NEXORA</strong><small>Notification Hub</small></span>
+    </a>
+
+    <nav class="nx-nav" aria-label="Primary navigation">
+      <a class="nx-nav-item active" href="{{ url_for('main.dashboard') }}">
+        <span class="nx-icon">⌂</span><span>Dashboard</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.dashboard', view='all') }}#recent-emails">
+        <span class="nx-icon">▤</span><span>All Mail</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.dashboard', view='inbox') }}#recent-emails">
+        <span class="nx-icon">✉</span><span>Inbox</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.dashboard', view='spam') }}#recent-emails">
+        <span class="nx-icon">⛨</span><span>Spam & Quarantine</span>
+        {% if stats is defined %}<span class="nx-nav-state">{{ stats.spam }}</span>{% endif %}
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.dashboard', view='suspicious') }}#recent-emails">
+        <span class="nx-icon">⚠</span><span>Suspicious / Phishing</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.assistant_page') }}">
+        <span class="nx-icon">✦</span><span>Ask NEXORA</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.dashboard', view='sent') }}#recent-emails">
+        <span class="nx-icon">➤</span><span>Sent Mail</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.dashboard', view='drafts') }}#recent-emails">
+        <span class="nx-icon">▧</span><span>Drafts</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.dashboard', view='promotions') }}#recent-emails">
+        <span class="nx-icon">◇</span><span>Promotions</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.dashboard', view='social') }}#recent-emails">
+        <span class="nx-icon">◎</span><span>Social</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.dashboard', view='updates') }}#recent-emails">
+        <span class="nx-icon">↻</span><span>Updates</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.tasks_page') }}">
+        <span class="nx-icon">✓</span><span>Tasks & Deadlines</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.analytics') }}">
+        <span class="nx-icon">▥</span><span>Analytics</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.trash') }}">
+        <span class="nx-icon">🗑</span><span>Trash</span>
+      </a>
+      <a class="nx-nav-item" href="#monitoring">
+        <span class="nx-icon">◌</span><span>Gmail Monitoring</span>
+        <span class="nx-nav-state">{{ 'ON' if current_user() and current_user().monitoring_enabled else 'OFF' }}</span>
+      </a>
+      <a class="nx-nav-item" href="#whatsapp">
+        <span class="nx-icon">◔</span><span>WhatsApp Alerts</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.profile') }}">
+        <span class="nx-icon">○</span><span>Profile</span>
+      </a>
+      <a class="nx-nav-item" href="{{ url_for('main.settings') }}">
+        <span class="nx-icon">⚙</span><span>Settings</span>
+      </a>
+    </nav>
+
+    <div class="nx-sidebar-divider"></div>
+    <div class="nx-quick-title">QUICK ACTIONS</div>
+    <a class="nx-compose" href="#recent-emails"><span>✎</span> View Inbox</a>
+
+    <div class="nx-sidebar-footer">
+      <span>SECURE WORKSPACE</span>
+      <span>v4 · ELITE</span>
+    </div>
+  </aside>
+
+  <div class="nx-main">
+    <header class="nx-topbar">
+      <button class="nx-mobile-menu" id="nxMobileMenu" aria-label="Open navigation">☰</button>
+      <div class="nx-search">
+        <span>⌕</span>
+        <input id="globalSearch" type="search" data-search-url="{{ url_for('main.dashboard') }}" placeholder="Search emails, subjects, senders, or press Enter..." autocomplete="off" value="{{ search_query if search_query is defined else '' }}">
+        <kbd>Ctrl K</kbd>
+      </div>
+      <div class="nx-top-actions">
+        <!-- Theme Mode Switcher -->
+        <div class="nx-theme-switch-control" id="themeSwitchControl">
+          <button type="button" class="nx-theme-pill-btn" id="themeToggleBtn" aria-label="Toggle Theme: Dark or Glass" title="Toggle Theme (Classic Dark / Frosted Glass)">
+            <span class="pill-slider"></span>
+            <span class="pill-opt pill-dark"><span class="pill-icon">🌙</span> Dark</span>
+            <span class="pill-opt pill-glass"><span class="pill-icon">✨</span> Glass</span>
+          </button>
+        </div>
+
+        <button class="nx-bell" aria-label="Notifications"><span>♧</span><i></i></button>
+        <div class="nx-user">
+          <div class="nx-avatar">
+            {% if current_user() and current_user().profile_image %}
+              <img
+                src="{{ url_for('static', filename='uploads/profile_images/' ~ current_user().profile_image) }}"
+                alt="Profile photo"
+                class="nx-avatar-img"
+              >
+            {% else %}
+              {{ (current_user().username[:1] if current_user() else 'U')|upper }}
+            {% endif %}
+          </div>
+          <div class="nx-user-copy">
+            <strong>{{ current_user().username if current_user() else 'User' }}</strong>
+            <small>Active Member</small>
+          </div>
+          <span class="nx-chevron">⌄</span>
+        </div>
+        <form method="POST" action="{{ url_for('auth.logout') }}" class="nx-signout-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="nx-signout" type="submit">Sign out</button></form>
+      </div>
+    </header>
+{% else %}
+<header class="public-topbar">
+  <a class="brand" href="{{ url_for('auth.login') }}"><span class="brand-symbol">N</span><span>NEXORA</span><em>NOTIFICATION HUB</em></a>
+</header>
+{% endif %}
+
+<main class="{% if session.get('user_id') %}nx-content{% else %}shell{% endif %}">
+{% with messages=get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-stack">
+{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+{% block content %}{% endblock %}
+</main>
+
+{% if session.get('user_id') %}
+  </div>
+</div>
+{% endif %}
+
+{% if not session.get('user_id') %}
+<footer><span>NEXORA Notification Hub</span><span>Gmail intelligence · WhatsApp delivery · Celery automation</span></footer>
+{% endif %}
+
+<script>const csrfToken="{{ csrf_token() }}";</script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}NEXORA · Trash{% endblock %}
+
+{% block content %}
+<section class="nx-welcome">
+    <div>
+        <span class="nx-eyebrow">EMAIL MANAGEMENT</span>
+        <h1>Trash 🗑</h1>
+        <p>Deleted emails stay here until you restore or permanently delete them.</p>
+    </div>
+</section>
+
+<section class="nx-card nx-trash-card">
+    <div class="nx-card-head">
+        <div>
+            <div class="nx-card-title">Deleted Emails</div>
+            <small>{{ emails|length }} email(s) in Trash</small>
+        </div>
+        <div class="nx-trash-header-actions">
+            {% if emails %}
+            <form method="POST" action="{{ url_for('main.restore_all_trash') }}" style="display:inline;" onsubmit="return confirm('Restore all {{ emails|length }} email(s) back to your active mailbox?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="nx-action-btn restore" title="Restore all emails from trash">
+                    ↩ Restore All Mails
+                </button>
+            </form>
+
+            <form method="POST" action="{{ url_for('main.empty_trash') }}" style="display:inline;" onsubmit="return confirm('Permanently delete all {{ emails|length }} email(s) in Trash? This cannot be undone.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="nx-action-btn trash" title="Permanently delete all emails in trash">
+                    🗑 Empty Trash
+                </button>
+            </form>
+            {% endif %}
+
+            <a class="nx-outline-btn" href="{{ url_for('main.dashboard') }}">
+                ← Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    {% if emails %}
+        <!-- Selection & Batch Action Toolbar -->
+        <div class="nx-trash-selection-bar" id="trashSelectionBar">
+            <div class="nx-select-all-wrap">
+                <input type="checkbox" id="selectAllCheckbox" class="nx-checkbox" title="Select / Deselect all emails">
+                <label for="selectAllCheckbox" class="nx-select-all-label">Select All</label>
+                <span class="nx-selected-count-badge" id="selectedCountBadge" style="display: none;">0 selected</span>
+            </div>
+
+            <!-- Batch actions (visible when 1+ emails selected) -->
+            <div class="nx-selected-actions" id="selectedActionsGroup" style="display: none;">
+                <form method="POST" action="{{ url_for('main.restore_selected_trash') }}" id="restoreSelectedForm" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="hidden-ids-container"></div>
+                    <button type="submit" class="nx-action-btn restore" id="btnRestoreSelected" title="Restore selected emails">
+                        ↩ Restore Selected
+                    </button>
+                </form>
+
+                <form method="POST" action="{{ url_for('main.delete_selected_trash') }}" id="deleteSelectedForm" style="display: inline;" onsubmit="return confirm('Permanently delete the selected email(s)? This cannot be undone.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="hidden-ids-container"></div>
+                    <button type="submit" class="nx-action-btn trash" id="btnDeleteSelected" title="Permanently delete selected emails">
+                        🗑 Delete Selected
+                    </button>
+                </form>
+
+                <button type="button" class="nx-btn-clear-selection" id="btnClearSelection" title="Clear selection">
+                    Clear
+                </button>
+            </div>
+        </div>
+
+        <div class="nx-email-list">
+            {% for e in emails %}
+            <article class="nx-email-row nx-selectable-row" id="row_email_{{ e.id }}" data-email-id="{{ e.id }}">
+                <div class="nx-row-checkbox-wrap">
+                    <input
+                        type="checkbox"
+                        class="nx-checkbox nx-item-checkbox"
+                        value="{{ e.id }}"
+                        id="chk_email_{{ e.id }}"
+                        aria-label="Select email"
+                    >
+                </div>
+
+                <div class="nx-sender-avatar">
+                    {{ (e.sender or '?')[:1]|upper }}
+                </div>
+
+                <div class="nx-email-main">
+                    <div class="nx-email-top">
+                        <div>
+                            <strong>{{ e.sender or 'Unknown sender' }}</strong>
+                            <h3><a class="nx-email-title-link" href="{{ url_for('main.view_email', email_id=e.id) }}">{{ e.subject or 'No subject' }}</a></h3>
+                            <p>{{ e.summary or 'No summary available.' }}</p>
+                        </div>
+                        <time>
+                            {{ e.received_at.strftime('%d %b %Y, %I:%M %p')
+                               if e.received_at else '—' }}
+                        </time>
+                    </div>
+
+                    <div class="nx-trash-buttons">
+                        <form method="POST"
+                              action="{{ url_for('main.restore_email', email_id=e.id) }}">
+                            <input type="hidden" name="csrf_token"
+                                   value="{{ csrf_token() }}">
+                            <button type="submit" class="nx-restore-btn">
+                                ↩ Restore
+                            </button>
+                        </form>
+
+                        <form method="POST"
+                              action="{{ url_for('main.delete_email_permanently', email_id=e.id) }}"
+                              onsubmit="return confirm('Permanently delete this saved email from NEXORA? This cannot be undone.');">
+                            <input type="hidden" name="csrf_token"
+                                   value="{{ csrf_token() }}">
+                            <button type="submit" class="nx-delete-btn">
+                                🗑 Delete permanently
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="nx-empty">
+            <div>✓</div>
+            <h3>Trash is empty</h3>
+            <p>Emails you delete from the dashboard will appear here.</p>
+            <a href="{{ url_for('main.dashboard') }}" class="nx-primary-btn">
+                Return to Dashboard →
+            </a>
+        </div>
+    {% endif %}
+</section>
+
+<!-- Trash Selection Interactivity Script -->
+<script>
+(function() {
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const itemCheckboxes = document.querySelectorAll('.nx-item-checkbox');
+    const selectedCountBadge = document.getElementById('selectedCountBadge');
+    const selectedActionsGroup = document.getElementById('selectedActionsGroup');
+    const btnClearSelection = document.getElementById('btnClearSelection');
+    const restoreForm = document.getElementById('restoreSelectedForm');
+    const deleteForm = document.getElementById('deleteSelectedForm');
+
+    function getSelectedIds() {
+        const ids = [];
+        document.querySelectorAll('.nx-item-checkbox:checked').forEach(cb => {
+            ids.push(cb.value);
+        });
+        return ids;
+    }
+
+    function updateSelectionUI() {
+        const selected = getSelectedIds();
+        const total = itemCheckboxes.length;
+        const count = selected.length;
+
+        // Update count badge & actions visibility
+        if (count > 0) {
+            selectedCountBadge.textContent = count + ' selected';
+            selectedCountBadge.style.display = 'inline-flex';
+            selectedActionsGroup.style.display = 'inline-flex';
+        } else {
+            selectedCountBadge.style.display = 'none';
+            selectedActionsGroup.style.display = 'none';
+        }
+
+        // Update select all checkbox indeterminate / checked state
+        if (selectAllCheckbox) {
+            if (count === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            } else if (count === total) {
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.indeterminate = false;
+            } else {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = true;
+            }
+        }
+
+        // Update visual row highlight
+        itemCheckboxes.forEach(cb => {
+            const row = document.getElementById('row_email_' + cb.value);
+            if (row) {
+                if (cb.checked) {
+                    row.classList.add('is-selected');
+                } else {
+                    row.classList.remove('is-selected');
+                }
+            }
+        });
+
+        // Sync hidden inputs in batch forms
+        [restoreForm, deleteForm].forEach(form => {
+            if (!form) return;
+            const container = form.querySelector('.hidden-ids-container');
+            if (container) {
+                container.innerHTML = '';
+                selected.forEach(id => {
+                    const inp = document.createElement('input');
+                    inp.type = 'hidden';
+                    inp.name = 'selected_ids';
+                    inp.value = id;
+                    container.appendChild(inp);
+                });
+            }
+        });
+    }
+
+    // Toggle Select All
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            itemCheckboxes.forEach(cb => {
+                cb.checked = isChecked;
+            });
+            updateSelectionUI();
+        });
+    }
+
+    // Individual checkbox click
+    itemCheckboxes.forEach(cb => {
+        cb.addEventListener('change', updateSelectionUI);
+    });
+
+    // Clear selection button
+    if (btnClearSelection) {
+        btnClearSelection.addEventListener('click', function() {
+            itemCheckboxes.forEach(cb => {
+                cb.checked = false;
+            });
+            updateSelectionUI();
+        });
+    }
+
+    // Prevent row submission if 0 items selected
+    [restoreForm, deleteForm].forEach(form => {
+        if (!form) return;
+        form.addEventListener('submit', function(e) {
+            const selected = getSelectedIds();
+            if (selected.length === 0) {
+                e.preventDefault();
+                alert('Please select at least one email first.');
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

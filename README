@@ -1,0 +1,1 @@
+Alembic migration directory for Flask-Migrate. Generate/apply migrations after reviewing schema changes.
